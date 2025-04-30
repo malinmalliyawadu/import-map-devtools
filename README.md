@@ -28,7 +28,7 @@ For import map overrides to work correctly, you **must** include the loader scri
 
 ```html
 <!-- Import Map Devtools Loader - include BEFORE import maps -->
-<script src="https://cdn.jsdelivr.net/npm/import-map-devtools/dist/loader.global.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/[your-github-username]/import-map-devtools@latest/packages/import-map-devtools/dist/loader.global.js"></script>
 
 <!-- Your import maps come after the loader -->
 <script type="importmap">
@@ -38,6 +38,12 @@ For import map overrides to work correctly, you **must** include the loader scri
     }
   }
 </script>
+```
+
+You can also pin a specific version:
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/[your-github-username]/import-map-devtools@v1.0.0/packages/import-map-devtools/dist/loader.global.js"></script>
 ```
 
 This is crucial because browsers process import maps immediately when they're encountered. The loader script ensures your overrides are applied before the browser processes the import maps.
@@ -90,9 +96,48 @@ npm run build
 
 ## Deployment
 
+### Example App
+
 The example app is automatically deployed to GitHub Pages when changes are pushed to the main branch. You can also manually trigger the deployment workflow from the GitHub Actions tab.
 
 To view the deployed example app, visit: [Import Map Devtools Demo](https://[your-github-username].github.io/import-map-devtools/)
+
+### Package Publication
+
+The library is published to GitHub Packages, making it available via jsDelivr. New versions are published through our unified release workflow that supports multiple triggering methods:
+
+#### Automatic Versioning with PR Labels
+
+When merging a Pull Request to the main branch, you can add one of the following labels to automatically trigger a version bump and package release:
+
+- `version:patch` - For backwards-compatible bug fixes (1.0.0 → 1.0.1)
+- `version:minor` - For new backwards-compatible functionality (1.0.0 → 1.1.0)
+- `version:major` - For breaking changes (1.0.0 → 2.0.0)
+
+#### Direct Commits to Main
+
+Any direct commits pushed to the main branch will automatically trigger a patch version update (e.g., 1.0.0 → 1.0.1) and publish a new release.
+
+#### Manual Release
+
+You can also manually trigger a release:
+
+1. Go to the "Actions" tab in the GitHub repository
+2. Select the "Release and Publish" workflow
+3. Click "Run workflow"
+4. Select the version type (`patch`, `minor`, `major`) or enter a specific version number
+
+For all release methods, the workflow will:
+
+1. Update the version in both package.json files using npm's versioning system
+2. Create a Git tag and GitHub Release
+3. Publish the package to GitHub Packages
+
+After publishing, the loader script will be available at:
+
+```
+https://cdn.jsdelivr.net/gh/[your-github-username]/import-map-devtools@latest/packages/import-map-devtools/dist/loader.global.js
+```
 
 ## License
 

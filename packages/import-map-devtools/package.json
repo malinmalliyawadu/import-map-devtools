@@ -14,6 +14,14 @@
     "lint": "eslint src/**/*.ts* --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/[your-github-username]/import-map-devtools.git"
+  },
+  "homepage": "https://github.com/[your-github-username]/import-map-devtools#readme",
+  "bugs": {
+    "url": "https://github.com/[your-github-username]/import-map-devtools/issues"
+  },
   "keywords": [
     "import-map",
     "devtools",
@@ -44,5 +52,8 @@
     "tsup": "^7.2.0",
     "typescript": "^5.1.6",
     "vite": "^6.3.4"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

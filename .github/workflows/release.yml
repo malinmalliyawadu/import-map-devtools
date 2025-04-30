@@ -1,0 +1,235 @@
+name: Release and Publish
+
+on:
+  # Trigger on PR merge with version labels
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  # Trigger on direct commits to main
+  push:
+    branches:
+      - main
+  # Trigger on GitHub release creation
+  release:
+    types: [created]
+  # Allow manual triggering with version parameter
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (patch, minor, major, or specific version)"
+        required: true
+        default: "patch"
+        type: string
+
+jobs:
+  version-and-release:
+    # Skip if this is a version bump commit to avoid infinite loops
+    if: >
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'release') ||
+      (github.event_name == 'pull_request' && 
+       github.event.pull_request.merged == true && 
+       (contains(github.event.pull_request.labels.*.name, 'version:patch') || 
+        contains(github.event.pull_request.labels.*.name, 'version:minor') || 
+        contains(github.event.pull_request.labels.*.name, 'version:major'))) ||
+      (github.event_name == 'push' && 
+       github.event.commits[0].message != 'chore: bump version')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      release_created: ${{ steps.create_release.outputs.release_created }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get commit info (for push events)
+        id: commit_info
+        if: github.event_name == 'push'
+        run: |
+          COMMIT_MESSAGE="${{ github.event.commits[0].message }}"
+          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+          # Exit early if this is a version bump commit to avoid infinite loops
+          if [[ "$COMMIT_MESSAGE" == *"chore: bump version"* ]]; then
+            echo "This is a version bump commit, skipping to avoid loops"
+            exit 0
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      #
+      # DETERMINE VERSION
+      #
+
+      - name: Determine version bump type
+        id: bump_type
+        run: |
+          # Default to patch version
+          BUMP_TYPE="patch"
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Use user-provided version from workflow dispatch
+            BUMP_TYPE="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            # Get version from release tag
+            RELEASE_VERSION=${{ github.event.release.tag_name }}
+            # Remove 'v' prefix if present
+            BUMP_TYPE=${RELEASE_VERSION#v}
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Use version label from PR
+            if [[ ${{ contains(github.event.pull_request.labels.*.name, 'version:major') }} == true ]]; then
+              BUMP_TYPE="major"
+            elif [[ ${{ contains(github.event.pull_request.labels.*.name, 'version:minor') }} == true ]]; then
+              BUMP_TYPE="minor"
+            else
+              BUMP_TYPE="patch"
+            fi
+          fi
+
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+
+      #
+      # UPDATE VERSIONS
+      #
+
+      - name: Update package versions
+        id: version
+        run: |
+          cd packages/import-map-devtools
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+
+          # Get current version before any changes
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Determine if this is a specific version or a bump type
+          if [[ "$BUMP_TYPE" =~ ^(patch|minor|major)$ ]]; then
+            # This is a bump type
+            npm version $BUMP_TYPE --no-git-tag-version
+          else
+            # This is a specific version
+            npm version $BUMP_TYPE --no-git-tag-version --allow-same-version
+          fi
+
+          # Get new version after update
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # Update example app version to match
+          cd ../example
+          # Check if the version exists
+          if grep -q '"version"' package.json; then
+            npx json -I -f package.json -e "this.version='$NEW_VERSION'"
+          fi
+
+          # Also update the import-map-devtools dependency if using a version
+          if grep -q '"import-map-devtools"' package.json; then
+            IMPORT_MAP_DEP=$(node -p "require('./package.json').dependencies['import-map-devtools']")
+            if [[ "$IMPORT_MAP_DEP" != "*" ]]; then
+              npx json -I -f package.json -e "this.dependencies['import-map-devtools']='$NEW_VERSION'"
+            fi
+          fi
+
+      #
+      # COMMIT VERSION CHANGES
+      #
+
+      - name: Commit version changes
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add packages/import-map-devtools/package.json packages/example/package.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
+          git push
+
+      #
+      # CREATE GITHUB RELEASE
+      #
+
+      - name: Create GitHub Release
+        id: create_release
+        # Skip if running from release webhook (already exists)
+        if: github.event_name != 'release'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.version.outputs.new_version }}
+          name: "v${{ steps.version.outputs.new_version }}"
+          body: |
+            ## Release v${{ steps.version.outputs.new_version }}
+
+            ${{ github.event_name == 'pull_request' && format('This release was automatically created from PR: {0}', github.event.pull_request.title) || github.event_name == 'push' && format('This release was automatically created from direct commit to main: {0}', steps.commit_info.outputs.commit_message) || format('This release was manually triggered with version: {0}', steps.bump_type.outputs.bump_type) }}
+
+            ${{ github.event_name == 'pull_request' && format('View the [Pull Request #{0}]({1}) for more details.', github.event.pull_request.number, github.event.pull_request.html_url) || '' }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+        continue-on-error: true
+
+  #
+  # PUBLISH TO GITHUB PACKAGES
+  #
+
+  publish:
+    needs: version-and-release
+    # Skip publishing if the workflow was triggered by a release and the release wasn't created in previous job
+    if: github.event_name != 'release' || needs.version-and-release.outputs.release_created != 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main # Ensure we're using the updated main branch with version bump
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@${{ github.repository_owner }}"
+          cache: "npm"
+
+      - name: Update package name for GitHub Packages
+        run: |
+          cd packages/import-map-devtools
+          # Add GitHub repository owner as the package scope
+          NAME=$(node -p "require('./package.json').name")
+          if [[ $NAME != @* ]]; then
+            npx json -I -f package.json -e "this.name='@${{ github.repository_owner }}/$NAME'"
+          fi
+
+          # Ensure the repository field is correctly set
+          npx json -I -f package.json -e "this.repository={type:'git',url:'git+https://github.com/${{ github.repository }}.git'}"
+
+          # Add GitHub registry to publishConfig
+          npx json -I -f package.json -e "this.publishConfig={registry:'https://npm.pkg.github.com',access:'public'}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build package
+        run: npm run build
+
+      - name: Publish to GitHub Packages
+        run: cd packages/import-map-devtools && npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
