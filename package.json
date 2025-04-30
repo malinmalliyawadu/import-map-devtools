@@ -1,0 +1,24 @@
+{
+  "name": "import-map-devtools",
+  "version": "1.0.0",
+  "description": "Modern UI for overriding import maps in the browser",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w packages/example",
+    "build": "npm run build -w packages/import-map-devtools",
+    "build:all": "npm run build -w packages/import-map-devtools && npm run build -w packages/example",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "import-map",
+    "devtools",
+    "frontend",
+    "microfrontends",
+    "react"
+  ],
+  "author": "",
+  "license": "MIT"
+}
