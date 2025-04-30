@@ -208,28 +208,14 @@ jobs:
           scope: "@${{ github.repository_owner }}"
           cache: "npm"
 
-      - name: Update package name for GitHub Packages
+      - name: Configure npm for GitHub Packages
         run: |
-          cd packages/import-map-devtools
-          # Store original name for reference
-          ORIGINAL_NAME=$(node -p "require('./package.json').name")
-
-          # Add GitHub repository owner as the package scope
-          if [[ $ORIGINAL_NAME != @* ]]; then
-            SCOPED_NAME="@${{ github.repository_owner }}/$ORIGINAL_NAME"
-            echo "Updating package name from $ORIGINAL_NAME to $SCOPED_NAME"
-            npx json -I -f package.json -e "this.name='$SCOPED_NAME'"
-          fi
-
-          # Ensure the repository field is correctly set
-          npx json -I -f package.json -e "this.repository={type:'git',url:'git+https://github.com/${{ github.repository }}.git'}"
-
-          # Add GitHub registry to publishConfig
-          npx json -I -f package.json -e "this.publishConfig={registry:'https://npm.pkg.github.com',access:'public'}"
+          # Create or update .npmrc file to use GitHub Packages
+          echo "@${{ github.repository_owner }}:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
 
       - name: Install dependencies
-        # Skip package lock validation since we've changed the package name
-        run: npm install --no-package-lock
+        run: npm ci
 
       - name: Build package
         run: npm run build

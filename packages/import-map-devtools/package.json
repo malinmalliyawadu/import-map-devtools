@@ -1,6 +1,6 @@
 {
-  "name": "import-map-devtools",
-  "version": "0.1.2",
+  "name": "@malinmalliyawadu/import-map-devtools",
+  "version": "0.1.1",
   "description": "Modern UI for overriding import maps in the browser with React",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -16,11 +16,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/[your-github-username]/import-map-devtools.git"
+    "url": "git+https://github.com/malinmalliyawadu/import-map-devtools.git"
   },
-  "homepage": "https://github.com/[your-github-username]/import-map-devtools#readme",
+  "homepage": "https://github.com/malinmalliyawadu/import-map-devtools#readme",
   "bugs": {
-    "url": "https://github.com/[your-github-username]/import-map-devtools/issues"
+    "url": "https://github.com/malinmalliyawadu/import-map-devtools/issues"
   },
   "keywords": [
     "import-map",
@@ -54,6 +54,7 @@
     "vite": "^6.3.4"
   },
   "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
     "access": "public"
   }
 }
