@@ -211,10 +211,14 @@ jobs:
       - name: Update package name for GitHub Packages
         run: |
           cd packages/import-map-devtools
+          # Store original name for reference
+          ORIGINAL_NAME=$(node -p "require('./package.json').name")
+
           # Add GitHub repository owner as the package scope
-          NAME=$(node -p "require('./package.json').name")
-          if [[ $NAME != @* ]]; then
-            npx json -I -f package.json -e "this.name='@${{ github.repository_owner }}/$NAME'"
+          if [[ $ORIGINAL_NAME != @* ]]; then
+            SCOPED_NAME="@${{ github.repository_owner }}/$ORIGINAL_NAME"
+            echo "Updating package name from $ORIGINAL_NAME to $SCOPED_NAME"
+            npx json -I -f package.json -e "this.name='$SCOPED_NAME'"
           fi
 
           # Ensure the repository field is correctly set
@@ -224,7 +228,8 @@ jobs:
           npx json -I -f package.json -e "this.publishConfig={registry:'https://npm.pkg.github.com',access:'public'}"
 
       - name: Install dependencies
-        run: npm ci
+        # Skip package lock validation since we've changed the package name
+        run: npm install --no-package-lock
 
       - name: Build package
         run: npm run build

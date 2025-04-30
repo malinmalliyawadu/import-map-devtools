@@ -35,17 +35,26 @@ We use PR labels to automatically trigger version bumps and releases. When submi
   - Examples: API changes, removing deprecated functionality
   - Version change: 1.0.0 → 2.0.0
 
-When a PR with one of these labels is merged to `main`, our GitHub Actions workflow will:
+Our unified release workflow will:
 
-1. Bump the version in package.json based on the label
+1. Bump the version in all package.json files using npm version
 2. Create a Git tag and GitHub Release
 3. Publish the package to GitHub Packages
 
 ### Direct Commits to Main
 
-Any direct commits pushed to the main branch will also automatically trigger a patch version bump and release to GitHub Packages. This is useful for quick fixes or changes that don't warrant a full PR process.
+Any direct commits pushed to the main branch will also automatically trigger a patch version bump and release. This is useful for quick fixes or changes that don't warrant a full PR process.
 
 Note: The commit message must not contain "chore: bump version" to avoid triggering an infinite loop of version bumps.
+
+### Manual Releases
+
+To manually trigger a release:
+
+1. Go to the "Actions" tab in the GitHub repository
+2. Select the "Release and Publish" workflow
+3. Click "Run workflow"
+4. Select the version type (`patch`, `minor`, `major`) or enter a specific version number
 
 ## Commit Message Format
 
