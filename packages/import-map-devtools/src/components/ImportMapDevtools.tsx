@@ -162,21 +162,6 @@ export function ImportMapDevtools({
                   </Button>
                 </div>
               </div>
-
-              <div className="flex items-center gap-4 text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="w-3 h-3 inline-block rounded-full bg-gradient-to-r from-indigo-400 to-violet-400 border border-indigo-500 shadow-sm"></span>
-                  <span className="text-slate-700 dark:text-slate-300">
-                    Overridden
-                  </span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="w-3 h-3 inline-block rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600"></span>
-                  <span className="text-slate-700 dark:text-slate-300">
-                    Default
-                  </span>
-                </span>
-              </div>
             </div>
 
             <div className="flex-1 overflow-auto p-4 bg-slate-50 dark:bg-slate-800/50">
