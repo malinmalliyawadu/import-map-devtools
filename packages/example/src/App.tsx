@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { ImportMapDevtools, importMapService } from "import-map-devtools";
 
 // Type definitions for the dynamically imported modules
@@ -71,44 +71,13 @@ export default function App() {
       // Create a global object to hold module imports so we can see them in the console
       window.demoModuleImports = {};
 
-      // Clear any existing module caches where possible
-      try {
-        // @ts-ignore
-        window.sessionStorage.clear();
-        console.log("SessionStorage cleared to help with cache busting");
-      } catch (e) {
-        console.warn("Could not clear sessionStorage:", e);
-      }
-
-      console.warn(
-        "Note: Browser module cache can't be programmatically cleared. " +
-          "For accurate testing, you might need to hard refresh the page or use incognito mode."
-      );
-
       // Import each module
       for (const [moduleName, url] of Object.entries(effectiveMap)) {
         try {
           console.log(`Importing module: ${moduleName} from ${url}`);
 
-          // Create a unique import specifier to try to bypass cache
-          // Use a timestamp query parameter
-          const timestamp = Date.now();
-          const uniqueModuleName = `${moduleName}#${timestamp}`;
-
-          console.log(`Using unique import specifier: ${uniqueModuleName}`);
-
-          // Try different approaches to import
-          let module;
-          try {
-            // First try with the unique name
-            module = await import(/* @vite-ignore */ uniqueModuleName);
-          } catch (err) {
-            console.warn(
-              `Could not import with unique name, trying original: ${moduleName}`
-            );
-            // Fall back to original name if it fails
-            module = await import(/* @vite-ignore */ moduleName);
-          }
+          // Import the module directly
+          const module = await import(/* @vite-ignore */ moduleName);
 
           imports[moduleName] = module;
           window.demoModuleImports[moduleName] = module;
@@ -163,12 +132,34 @@ export default function App() {
 
   // Helper function to forcefully replace import map in DOM
   const forceReplaceImportMap = () => {
-    // Get current import map from DOM
-    const importMapEl = document.querySelector('script[type="importmap"]');
-    if (!importMapEl) {
+    // Get current import map from DOM - only use the first one if multiple are found
+    const importMapElements = document.querySelectorAll(
+      'script[type="importmap"]'
+    );
+
+    if (importMapElements.length === 0) {
       console.error("No import map found in DOM");
       return false;
     }
+
+    // If multiple import maps are found, log a warning and use only the first one
+    if (importMapElements.length > 1) {
+      console.warn(
+        `Found ${importMapElements.length} import maps, using only the first one`
+      );
+
+      // Remove additional import maps to avoid duplicates
+      for (let i = 1; i < importMapElements.length; i++) {
+        const mapToRemove = importMapElements[i];
+        if (mapToRemove.parentNode) {
+          console.log(`Removing redundant import map #${i + 1}`);
+          mapToRemove.parentNode.removeChild(mapToRemove);
+        }
+      }
+    }
+
+    // Use only the first import map
+    const importMapEl = importMapElements[0];
 
     try {
       // Parse the current import map
@@ -177,31 +168,26 @@ export default function App() {
       // Get overrides
       const overrides = importMapService.getOverrides();
 
-      // Create a new import map with overrides applied
+      // Ensure the imports object exists in the current map
       if (!currentMap.imports) {
         currentMap.imports = {};
       }
 
-      // Apply overrides
+      // Only apply overrides - DO NOT alter non-overridden modules
+      // This ensures we preserve all original modules
       for (const [moduleName, url] of Object.entries(overrides)) {
+        // Only update modules that are specifically overridden
         currentMap.imports[moduleName] = url;
       }
 
-      // Create a completely new import map element
-      const newImportMap = document.createElement("script");
-      newImportMap.setAttribute("type", "importmap");
-      newImportMap.textContent = JSON.stringify(currentMap, null, 2);
+      // Update the existing import map in place
+      const newContent = JSON.stringify(currentMap, null, 2);
 
-      // Replace the old import map
-      const parent = importMapEl.parentNode;
-      if (parent) {
-        parent.replaceChild(newImportMap, importMapEl);
-        console.log("Forcefully replaced import map in DOM:", currentMap);
-        return true;
-      } else {
-        console.error("Import map has no parent node");
-        return false;
-      }
+      // Simply update the textContent instead of creating a new element
+      importMapEl.textContent = newContent;
+      console.log("Updated import map content in place:", currentMap);
+
+      return true;
     } catch (error) {
       console.error("Error forcefully replacing import map:", error);
       return false;
@@ -264,19 +250,18 @@ export default function App() {
 
               <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                 <h3 className="text-md font-medium text-yellow-800 mb-1">
-                  Important Browser Cache Note:
+                  Browser Cache Note:
                 </h3>
                 <p className="text-sm text-yellow-700">
-                  Browsers may cache modules. For best results:
+                  Browsers may cache imported modules. If you don't see changes
+                  after applying overrides:
                 </p>
                 <ul className="list-disc pl-5 text-sm text-yellow-700 mt-1">
+                  <li>Use a hard refresh (Ctrl+Shift+R or Cmd+Shift+R)</li>
+                  <li>Or use an incognito/private window for testing</li>
                   <li>
-                    Use a hard refresh (Ctrl+Shift+R or Cmd+Shift+R) after
-                    changing overrides
-                  </li>
-                  <li>Or test in an incognito/private window</li>
-                  <li>
-                    Click the "Reload Modules" button after making changes
+                    Click the "Reset All Overrides" button when you're done
+                    testing
                   </li>
                 </ul>
               </div>
@@ -442,128 +427,53 @@ export default function App() {
                 )}
               </div>
 
-              {/* Testing section for direct overrides */}
-              <div className="bg-blue-100 p-4 rounded-md mb-8 border border-blue-200">
-                <h3 className="text-lg font-medium mb-2">
-                  Test Direct Override:
-                </h3>
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <button
-                    onClick={() => {
-                      // Generate a random module name to ensure it's not cached
-                      const uniqueId = Date.now();
-                      const moduleUrl = `https://cdn.jsdelivr.net/npm/react@17.0.2/umd/react.production.min.js?_=${uniqueId}`;
-
-                      // Override demo-module-1 with a different React version
-                      importMapService.override("demo-module-1", moduleUrl);
-                      console.log(
-                        `Applied test override to demo-module-1 (React 17) with URL: ${moduleUrl}`
-                      );
-
-                      // Refresh the display
-                      refreshModules();
-                      // Force replace the import map in DOM
-                      forceReplaceImportMap();
-                      setTimeout(() => {
-                        importModules();
-                        // Also refresh the import map display
-                        setError(error ? error : null);
-                      }, 100);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Override React to v17
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      // Generate a random module name to ensure it's not cached
-                      const uniqueId = Date.now();
-                      const moduleUrl = `https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js?_=${uniqueId}`;
-
-                      // Override demo-module-2 with a different Lodash version
-                      importMapService.override("demo-module-2", moduleUrl);
-                      console.log(
-                        `Applied test override to demo-module-2 (Lodash 4.17.15) with URL: ${moduleUrl}`
-                      );
-
-                      // Refresh the display
-                      refreshModules();
-                      // Force replace the import map in DOM
-                      forceReplaceImportMap();
-                      setTimeout(() => {
-                        importModules();
-                        // Also refresh the import map display
-                        setError(error ? error : null);
-                      }, 100);
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    Override Lodash to v4.17.15
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      // Reset all overrides
-                      importMapService.resetAll();
-                      console.log("Reset all overrides");
-                      // Refresh the display
-                      refreshModules();
-                      // Force replace the import map in DOM
-                      forceReplaceImportMap();
-                      setTimeout(() => {
-                        importModules();
-                        // Also refresh the import map display
-                        setError(error ? error : null);
-                      }, 100);
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                  >
-                    Reset All Overrides
-                  </button>
-
-                  <button
-                    onClick={forceReload}
-                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                  >
-                    Hard Reload Page
-                  </button>
-                </div>
-                <p className="text-sm text-gray-600">
-                  These buttons directly apply overrides for testing purposes.
-                  After clicking, check the console logs to see the import map
-                  changes. If changes aren't reflected in the loaded modules,
-                  try the Hard Reload button.
-                </p>
-              </div>
-
               {/* Display the overridden modules */}
               <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
                 <h3 className="text-lg font-medium mb-2">Active Overrides:</h3>
                 {Object.keys(overriddenModules).length > 0 ? (
-                  <div className="space-y-2">
-                    {Object.entries(overriddenModules).map(
-                      ([moduleName, url]) => (
-                        <div
-                          key={moduleName}
-                          className="bg-white p-3 rounded shadow-sm border border-blue-300"
-                        >
-                          <p className="font-medium text-blue-700">
-                            {moduleName}
-                          </p>
-                          <p className="text-sm text-blue-600 break-all font-medium">
-                            {url}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Original:{" "}
-                            {originalModules[moduleName] ||
-                              modules[moduleName] ||
-                              "Not found in original import map"}
-                          </p>
-                        </div>
-                      )
-                    )}
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      {Object.entries(overriddenModules).map(
+                        ([moduleName, url]) => (
+                          <div
+                            key={moduleName}
+                            className="bg-white p-3 rounded shadow-sm border border-blue-300"
+                          >
+                            <p className="font-medium text-blue-700">
+                              {moduleName}
+                            </p>
+                            <p className="text-sm text-blue-600 break-all font-medium">
+                              {url}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Original:{" "}
+                              {originalModules[moduleName] ||
+                                modules[moduleName] ||
+                                "Not found in original import map"}
+                            </p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="mt-4">
+                      <button
+                        onClick={() => {
+                          // Reset all overrides
+                          importMapService.resetAll();
+                          console.log("Reset all overrides");
+                          // Refresh the display
+                          refreshModules();
+                          // Force replace the import map in DOM
+                          forceReplaceImportMap();
+                          // Reload modules to reflect changes
+                          importModules();
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                      >
+                        Reset All Overrides
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <p>
                     No active overrides. Try setting one using the Import Map
@@ -578,38 +488,156 @@ export default function App() {
                 </h3>
                 <div className="bg-gray-50 p-3 rounded-md mb-4">
                   <h4 className="font-medium">React (different versions):</h4>
-                  <ul className="list-disc pl-5 text-sm text-gray-700">
-                    <li>
-                      https://cdn.jsdelivr.net/npm/react@17.0.2/umd/react.production.min.js
-                    </li>
-                    <li>
-                      https://cdn.jsdelivr.net/npm/react@16.14.0/umd/react.production.min.js
-                    </li>
-                  </ul>
+                  <div className="flex items-center justify-between flex-wrap mt-2">
+                    <ul className="list-disc pl-5 text-sm text-gray-700">
+                      <li>
+                        https://cdn.jsdelivr.net/npm/react@17.0.2/umd/react.production.min.js
+                      </li>
+                      <li>
+                        https://cdn.jsdelivr.net/npm/react@16.14.0/umd/react.production.min.js
+                      </li>
+                    </ul>
+                    <div className="flex mt-2 sm:mt-0 space-x-2">
+                      <button
+                        onClick={() => {
+                          importMapService.override(
+                            "demo-module-1",
+                            "https://cdn.jsdelivr.net/npm/react@17.0.2/umd/react.production.min.js"
+                          );
+                          refreshModules();
+                          forceReplaceImportMap();
+                          importModules();
+                        }}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        Apply v17
+                      </button>
+                      <button
+                        onClick={() => {
+                          importMapService.override(
+                            "demo-module-1",
+                            "https://cdn.jsdelivr.net/npm/react@16.14.0/umd/react.production.min.js"
+                          );
+                          refreshModules();
+                          forceReplaceImportMap();
+                          importModules();
+                        }}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        Apply v16
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-md mb-4">
                   <h4 className="font-medium">Lodash (different versions):</h4>
-                  <ul className="list-disc pl-5 text-sm text-gray-700">
-                    <li>
-                      https://cdn.jsdelivr.net/npm/lodash@4.17.20/lodash.min.js
-                    </li>
-                    <li>
-                      https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
-                    </li>
-                  </ul>
+                  <div className="flex items-center justify-between flex-wrap mt-2">
+                    <ul className="list-disc pl-5 text-sm text-gray-700">
+                      <li>
+                        https://cdn.jsdelivr.net/npm/lodash@4.17.20/lodash.min.js
+                      </li>
+                      <li>
+                        https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js
+                      </li>
+                    </ul>
+                    <div className="flex mt-2 sm:mt-0 space-x-2">
+                      <button
+                        onClick={() => {
+                          importMapService.override(
+                            "demo-module-2",
+                            "https://cdn.jsdelivr.net/npm/lodash@4.17.20/lodash.min.js"
+                          );
+                          refreshModules();
+                          forceReplaceImportMap();
+                          importModules();
+                        }}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                      >
+                        Apply v4.17.20
+                      </button>
+                      <button
+                        onClick={() => {
+                          importMapService.override(
+                            "demo-module-2",
+                            "https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js"
+                          );
+                          refreshModules();
+                          forceReplaceImportMap();
+                          importModules();
+                        }}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                      >
+                        Apply v4.17.15
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-md">
                   <h4 className="font-medium">
                     Moment.js (different versions):
                   </h4>
-                  <ul className="list-disc pl-5 text-sm text-gray-700">
-                    <li>
-                      https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js
-                    </li>
-                    <li>
-                      https://cdn.jsdelivr.net/npm/moment@2.28.0/moment.min.js
-                    </li>
-                  </ul>
+                  <div className="flex items-center justify-between flex-wrap mt-2">
+                    <ul className="list-disc pl-5 text-sm text-gray-700">
+                      <li>
+                        https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js
+                      </li>
+                      <li>
+                        https://cdn.jsdelivr.net/npm/moment@2.28.0/moment.min.js
+                      </li>
+                    </ul>
+                    <div className="flex mt-2 sm:mt-0 space-x-2">
+                      <button
+                        onClick={() => {
+                          importMapService.override(
+                            "demo-module-3",
+                            "https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"
+                          );
+                          refreshModules();
+                          forceReplaceImportMap();
+                          importModules();
+                        }}
+                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+                      >
+                        Apply v2.29.1
+                      </button>
+                      <button
+                        onClick={() => {
+                          importMapService.override(
+                            "demo-module-3",
+                            "https://cdn.jsdelivr.net/npm/moment@2.28.0/moment.min.js"
+                          );
+                          refreshModules();
+                          forceReplaceImportMap();
+                          importModules();
+                        }}
+                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+                      >
+                        Apply v2.28.0
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 bg-red-50 p-3 rounded-md border border-red-200">
+                  <button
+                    onClick={() => {
+                      // Reset all overrides
+                      importMapService.resetAll();
+                      console.log("Reset all overrides");
+                      // Refresh the display
+                      refreshModules();
+                      // Force replace the import map in DOM
+                      forceReplaceImportMap();
+                      // Reload modules to reflect changes
+                      importModules();
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                  >
+                    Reset All Overrides
+                  </button>
+                  <p className="mt-2 text-sm text-gray-600">
+                    Click this button to remove all overrides and restore
+                    original module versions.
+                  </p>
                 </div>
               </div>
 

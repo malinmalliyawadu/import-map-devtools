@@ -207,16 +207,9 @@ export class ImportMapService {
       );
     }
 
-    // Add a cache busting parameter to the URL to bypass browser cache
-    const urlWithCacheBuster = url.includes("?")
-      ? `${url}&_t=${Date.now()}`
-      : `${url}?_t=${Date.now()}`;
-
-    console.log(`Adding cache busting to URL: ${url} -> ${urlWithCacheBuster}`);
-
-    // Now apply the override
+    // Now apply the override without cache busting
     const overrides = this.getOverrides();
-    overrides[moduleName] = urlWithCacheBuster;
+    overrides[moduleName] = url;
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(overrides));
     this.dispatchChangeEvent();
 
@@ -335,12 +328,22 @@ export class ImportMapService {
       return;
     }
 
-    // Check if we need to merge multiple import maps
-    this.mergeImportMaps();
+    // First, ensure we only have one import map
+    const importMapElements = document.querySelectorAll(
+      'script[type="importmap"]'
+    );
+
+    // If multiple import maps are found, merge them
+    if (importMapElements.length > 1) {
+      console.warn(
+        `Found ${importMapElements.length} import maps, merging them into one`
+      );
+      this.mergeImportMaps();
+    }
 
     const overrides = this.getOverrides();
 
-    // Try to find an existing import map to modify
+    // Try to find the existing import map to modify (there should be only one now)
     let importMapEl = document.querySelector('script[type="importmap"]');
 
     // If no import map exists, create one
@@ -399,26 +402,9 @@ export class ImportMapService {
         const newContent = JSON.stringify(currentMap, null, 2);
         console.log("Setting new import map content:", newContent);
 
-        // Force a re-parse of the import map by replacing it
-        const parent = importMapEl.parentNode;
-        if (parent) {
-          // Create a new element
-          const newImportMap = document.createElement("script");
-          newImportMap.setAttribute("type", "importmap");
-          newImportMap.textContent = newContent;
-
-          // Replace the old one with the new one
-          parent.replaceChild(newImportMap, importMapEl);
-          console.log(
-            "Replaced import map in DOM to ensure changes are recognized"
-          );
-        } else {
-          // Fallback if we can't replace it
-          importMapEl.textContent = newContent;
-          console.log("Updated import map textContent (fallback method)");
-        }
-
-        console.log(`Updated import map with ${changes} override(s)`);
+        // Simply update the existing import map in place
+        importMapEl.textContent = newContent;
+        console.log(`Updated import map in place with ${changes} override(s)`);
       } else {
         console.log(
           "No changes needed to import map, overrides already applied"
@@ -461,7 +447,7 @@ export function applyOverridesToImportMap(): boolean {
       console.group("Import map loader: Merging multiple import maps");
       console.log(`Found ${allImportMaps.length} import maps, merging them`);
 
-      // Combine all maps
+      // Combine all maps - this preserves all modules from all import maps
       const combinedMap = { imports: {} as Record<string, string> };
 
       allImportMaps.forEach((map, index) => {
@@ -558,9 +544,6 @@ export function applyOverridesToImportMap(): boolean {
     // Apply overrides to the current import map
     console.group("Import map loader: Applying overrides");
     for (const [moduleName, overrideUrl] of Object.entries(overrides)) {
-      // Add cache busting parameter to the URL
-      const cacheBustUrl = `${overrideUrl}?t=${Date.now()}`;
-
       // Save original if not already saved
       if (
         currentImportMap.imports[moduleName] &&
@@ -574,11 +557,11 @@ export function applyOverridesToImportMap(): boolean {
         );
       }
 
-      // Apply override
+      // Apply override - only modify modules that are explicitly overridden
       const oldValue = currentImportMap.imports[moduleName];
-      currentImportMap.imports[moduleName] = cacheBustUrl;
+      currentImportMap.imports[moduleName] = overrideUrl;
       console.log(
-        `Overriding "${moduleName}": ${oldValue || "(new)"} -> ${cacheBustUrl}`
+        `Overriding "${moduleName}": ${oldValue || "(new)"} -> ${overrideUrl}`
       );
     }
     console.groupEnd();
@@ -595,20 +578,10 @@ export function applyOverridesToImportMap(): boolean {
     // Update the import map content in the DOM
     importMapElement.textContent = JSON.stringify(currentImportMap, null, 2);
 
-    // Force browser to re-process the import map by removing and re-adding it
-    const parent = importMapElement.parentNode;
-    if (parent) {
-      const newImportMapElement = importMapElement.cloneNode(true);
-      parent.removeChild(importMapElement);
-
-      // Small delay to ensure DOM updates
-      setTimeout(() => {
-        parent.appendChild(newImportMapElement);
-        console.log(
-          "Import map loader: Updated import map in DOM with overrides applied"
-        );
-      }, 0);
-    }
+    // No need to remove and re-add the import map - just update it in place
+    console.log(
+      "Import map loader: Updated import map in DOM with overrides applied"
+    );
 
     return true;
   } catch (err) {
@@ -618,100 +591,15 @@ export function applyOverridesToImportMap(): boolean {
 }
 
 /**
- * Function to directly override a module without going through localStorage
- */
-export function directOverride(moduleName: string, url: string): boolean {
-  try {
-    // Get the import map element
-    let importMapElement = document.querySelector(
-      'script[type="importmap"]'
-    ) as HTMLScriptElement;
-
-    if (!importMapElement) {
-      console.error(
-        "Import map loader: No import map found for direct override"
-      );
-      return false;
-    }
-
-    // Parse current import map
-    let currentImportMap: { imports: Record<string, string> } = { imports: {} };
-    try {
-      if (importMapElement.textContent) {
-        currentImportMap = JSON.parse(importMapElement.textContent);
-      }
-    } catch (err) {
-      console.error(
-        "Import map loader: Failed to parse current import map",
-        err
-      );
-      return false;
-    }
-
-    // Ensure imports object exists
-    if (!currentImportMap.imports) {
-      currentImportMap.imports = {};
-    }
-
-    // Save original if not already saved
-    const originalsJson = localStorage.getItem("import-map-originals");
-    const originals = originalsJson ? JSON.parse(originalsJson) : {};
-
-    if (
-      currentImportMap.imports[moduleName] &&
-      currentImportMap.imports[moduleName] !== url &&
-      !originals[moduleName]
-    ) {
-      originals[moduleName] = currentImportMap.imports[moduleName];
-      localStorage.setItem("import-map-originals", JSON.stringify(originals));
-      console.log(
-        `Saving original URL for "${moduleName}": ${originals[moduleName]}`
-      );
-    }
-
-    // Add cache busting parameter to the URL
-    const cacheBustUrl = `${url}?t=${Date.now()}`;
-
-    // Apply override
-    console.log(
-      `Directly overriding "${moduleName}": ${
-        currentImportMap.imports[moduleName] || "(new)"
-      } -> ${cacheBustUrl}`
-    );
-    currentImportMap.imports[moduleName] = cacheBustUrl;
-
-    // Store the override in localStorage too for persistence
-    const overridesJson = localStorage.getItem("import-map-overrides");
-    const overrides = overridesJson ? JSON.parse(overridesJson) : {};
-    overrides[moduleName] = url; // Store without cache busting parameter
-    localStorage.setItem("import-map-overrides", JSON.stringify(overrides));
-
-    // Update the import map content in the DOM
-    const newImportMapElement = document.createElement("script");
-    newImportMapElement.type = "importmap";
-    newImportMapElement.textContent = JSON.stringify(currentImportMap, null, 2);
-
-    // Force browser to re-process the import map
-    const parent = importMapElement.parentNode;
-    if (parent) {
-      parent.removeChild(importMapElement);
-      parent.appendChild(newImportMapElement);
-      console.log(
-        "Import map loader: Replaced import map in DOM with direct override"
-      );
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Import map loader: Error applying direct override", err);
-    return false;
-  }
-}
-
-/**
  * Function to reset all overrides
  */
 export function resetAllOverrides(): boolean {
+  // Get the list of overridden modules before clearing
+  const overridesJson = localStorage.getItem("import-map-overrides");
+  const overriddenModules = overridesJson
+    ? Object.keys(JSON.parse(overridesJson))
+    : [];
+
   // Clear overrides from localStorage
   localStorage.removeItem("import-map-overrides");
 
@@ -749,30 +637,24 @@ export function resetAllOverrides(): boolean {
       return false;
     }
 
-    // Restore original URLs
+    // Restore original URLs, but only for modules that were overridden
     console.group("Import map loader: Resetting to original URLs");
-    for (const [moduleName, originalUrl] of Object.entries(originals)) {
-      console.log(
-        `Restoring "${moduleName}": ${currentImportMap.imports[moduleName]} -> ${originalUrl}`
-      );
-      currentImportMap.imports[moduleName] = originalUrl as string;
+    for (const moduleName of overriddenModules) {
+      if (originals[moduleName]) {
+        console.log(
+          `Restoring "${moduleName}": ${currentImportMap.imports[moduleName]} -> ${originals[moduleName]}`
+        );
+        currentImportMap.imports[moduleName] = originals[moduleName];
+      } else {
+        // If we don't have an original for an overridden module, just leave it as is
+        console.log(`No original found for "${moduleName}", leaving as is`);
+      }
     }
     console.groupEnd();
 
     // Update the import map content in the DOM
-    const newImportMapElement = document.createElement("script");
-    newImportMapElement.type = "importmap";
-    newImportMapElement.textContent = JSON.stringify(currentImportMap, null, 2);
-
-    // Force browser to re-process the import map
-    const parent = importMapElement.parentNode;
-    if (parent) {
-      parent.removeChild(importMapElement);
-      parent.appendChild(newImportMapElement);
-      console.log(
-        "Import map loader: Replaced import map in DOM with original URLs"
-      );
-    }
+    importMapElement.textContent = JSON.stringify(currentImportMap, null, 2);
+    console.log("Import map loader: Reset import map to original URLs");
 
     // Clear originals from localStorage as they've been restored
     localStorage.removeItem("import-map-originals");
@@ -787,6 +669,5 @@ export function resetAllOverrides(): boolean {
 // Export utility functions alongside the service
 export const importMapUtils = {
   applyOverridesToImportMap,
-  directOverride,
   resetAllOverrides,
 };

@@ -87,6 +87,21 @@ var ImportMapDevtools = (() => {
       logError("Error saving original import map URLs:", error);
     }
   }
+  function getCombinedImportMap() {
+    const importMaps = document.querySelectorAll('script[type="importmap"]');
+    const combined = { imports: {} };
+    importMaps.forEach((importMapEl) => {
+      try {
+        const content = JSON.parse(importMapEl.textContent || '{"imports":{}}');
+        if (content.imports) {
+          Object.assign(combined.imports, content.imports);
+        }
+      } catch (e) {
+        logError("Error parsing import map while combining:", e);
+      }
+    });
+    return combined;
+  }
   function applyOverridesToImportMap(importMapEl) {
     const overrides = getOverrides();
     if (Object.keys(overrides).length === 0) {
@@ -144,22 +159,26 @@ var ImportMapDevtools = (() => {
       logError("Error applying import map overrides:", error);
     }
   }
-  function createImportMapIfNeeded() {
+  function createMergedImportMap() {
     const overrides = getOverrides();
-    if (Object.keys(overrides).length === 0) {
-      return null;
+    const importMaps = document.querySelectorAll('script[type="importmap"]');
+    const combinedMap = getCombinedImportMap();
+    for (const [moduleName, url] of Object.entries(overrides)) {
+      combinedMap.imports[moduleName] = url;
     }
-    if (document.querySelector('script[type="importmap"]')) {
-      return null;
-    }
-    log("No import map found in document, creating new one");
-    const importMapEl = document.createElement("script");
-    importMapEl.setAttribute("type", "importmap");
-    const content = JSON.stringify({ imports: overrides }, null, 2);
-    importMapEl.textContent = content;
-    document.head.insertBefore(importMapEl, document.head.firstChild);
-    log("Created new import map with overrides:", content);
-    return importMapEl;
+    const newImportMap = document.createElement("script");
+    newImportMap.setAttribute("type", "importmap");
+    const content = JSON.stringify(combinedMap, null, 2);
+    newImportMap.textContent = content;
+    importMaps.forEach((map) => {
+      if (map.parentNode) {
+        log("Removing existing import map:", map.textContent);
+        map.parentNode.removeChild(map);
+      }
+    });
+    document.head.insertBefore(newImportMap, document.head.firstChild);
+    log("Created merged import map with all modules:", content);
+    return newImportMap;
   }
   function applyOverridesToAllImportMaps() {
     log("Starting to apply overrides to all import maps");
@@ -167,14 +186,16 @@ var ImportMapDevtools = (() => {
     const importMaps = document.querySelectorAll('script[type="importmap"]');
     if (importMaps.length === 0) {
       log("No import maps found in document");
-      createImportMapIfNeeded();
+      createMergedImportMap();
       return;
     }
-    log(`Found ${importMaps.length} import map(s) in document`);
-    importMaps.forEach((importMap, index) => {
-      log(`Processing import map #${index + 1}`);
-      applyOverridesToImportMap(importMap);
-    });
+    if (importMaps.length > 1) {
+      log(`Found ${importMaps.length} import maps - merging them into one`);
+      createMergedImportMap();
+      return;
+    }
+    log(`Found 1 import map in document`);
+    applyOverridesToImportMap(importMaps[0]);
     log("Finished applying overrides to all import maps");
     logCurrentImportMap();
   }
@@ -186,22 +207,23 @@ var ImportMapDevtools = (() => {
       for (const mutation of mutations) {
         if (mutation.type !== "childList")
           continue;
+        let importMapAdded = false;
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             const el = node;
             if (el.tagName === "SCRIPT" && el.getAttribute("type") === "importmap") {
-              log("New import map detected, applying overrides");
-              applyOverridesToImportMap(el);
+              importMapAdded = true;
             }
             const importMaps = el.querySelectorAll('script[type="importmap"]');
             if (importMaps.length > 0) {
-              log(`Found ${importMaps.length} import map(s) in added node`);
-              importMaps.forEach((importMap) => {
-                applyOverridesToImportMap(importMap);
-              });
+              importMapAdded = true;
             }
           }
         });
+        if (importMapAdded) {
+          log("New import map detected, merging all import maps");
+          setTimeout(() => applyOverridesToAllImportMaps(), 0);
+        }
       }
     });
     observer.observe(document, { childList: true, subtree: true });
