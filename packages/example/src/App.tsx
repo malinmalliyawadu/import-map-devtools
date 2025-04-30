@@ -232,39 +232,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Import Map Devtools Demo
-          </h1>
-        </div>
-      </header>
-
       {/* Main content */}
       <main>
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="border-4 border-dashed border-gray-200 rounded-lg p-6 bg-white">
-              <h2 className="text-xl font-semibold mb-4">Import Map Demo</h2>
-
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <h3 className="text-md font-medium text-yellow-800 mb-1">
-                  Browser Cache Note:
-                </h3>
-                <p className="text-sm text-yellow-700">
-                  Browsers may cache imported modules. If you don't see changes
-                  after applying overrides:
-                </p>
-                <ul className="list-disc pl-5 text-sm text-yellow-700 mt-1">
-                  <li>Use a hard refresh (Ctrl+Shift+R or Cmd+Shift+R)</li>
-                  <li>Or use an incognito/private window for testing</li>
-                  <li>
-                    Click the "Reset All Overrides" button when you're done
-                    testing
-                  </li>
-                </ul>
-              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                Import Map Devtools Demo
+              </h1>
 
               {/* Import Map Debug Info */}
               <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
@@ -616,28 +591,6 @@ export default function App() {
                       </button>
                     </div>
                   </div>
-                </div>
-                <div className="mt-4 bg-red-50 p-3 rounded-md border border-red-200">
-                  <button
-                    onClick={() => {
-                      // Reset all overrides
-                      importMapService.resetAll();
-                      console.log("Reset all overrides");
-                      // Refresh the display
-                      refreshModules();
-                      // Force replace the import map in DOM
-                      forceReplaceImportMap();
-                      // Reload modules to reflect changes
-                      importModules();
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                  >
-                    Reset All Overrides
-                  </button>
-                  <p className="mt-2 text-sm text-gray-600">
-                    Click this button to remove all overrides and restore
-                    original module versions.
-                  </p>
                 </div>
               </div>
 
