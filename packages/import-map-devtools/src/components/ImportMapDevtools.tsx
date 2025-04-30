@@ -219,7 +219,7 @@ export function ImportMapDevtools({
         >
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-10 duration-300">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              <h2 className="text-xl font-bold bg-gradient-to-r bg-clip-text text-white">
                 Import Map Overrides
               </h2>
               <button
