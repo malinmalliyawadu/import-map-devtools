@@ -16,6 +16,7 @@ Import maps are a web standard that allow you to control how the browser resolve
 - 📋 Edit module URLs with a convenient dialog
 - 🔄 Reset individual or all overrides
 - 📱 Responsive design that works on all devices
+- ⚡️ Loader script to ensure overrides are applied before import maps are processed
 
 ## Usage
 
@@ -25,9 +26,37 @@ Import maps are a web standard that allow you to control how the browser resolve
 npm install import-map-devtools
 ```
 
-### Basic Usage
+### Loader Script (Important!)
 
-Simply add the `ImportMapDevtools` component to your application:
+For import map overrides to work correctly, you **must** include the loader script **before** any import maps in your HTML:
+
+1. Copy the loader script from node_modules to your web server's public directory:
+
+```bash
+cp node_modules/import-map-devtools/dist/loader.global.js public/
+```
+
+2. Include the script in your HTML before any import maps:
+
+```html
+<!-- Import Map Devtools Loader - include BEFORE import maps -->
+<script src="/loader.global.js"></script>
+
+<!-- Your import maps come after the loader -->
+<script type="importmap">
+  {
+    "imports": {
+      "react": "https://cdn.example.com/react.js"
+    }
+  }
+</script>
+```
+
+This is crucial because browsers process import maps immediately when they're encountered. The loader script ensures your overrides are applied before the browser processes the import maps.
+
+### UI Component
+
+Add the `ImportMapDevtools` component to your application:
 
 ```jsx
 import { ImportMapDevtools } from "import-map-devtools";

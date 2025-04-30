@@ -11,8 +11,10 @@ export function useImportMap() {
   }, []);
 
   useEffect(() => {
-    // Initial load
+    // Initial load and apply any existing overrides
+    // This ensures import maps are updated when the component mounts
     refreshModules();
+    importMapService.applyOverridesOnInit();
 
     // Listen for changes
     const handleChange = () => {

@@ -5,18 +5,41 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Import Map Devtools Demo</title>
+
     <!-- 
-      Import map for demonstrating the library functionality 
-      This is what our devtools will allow users to override
+      Import Map Devtools Loader script - this must come BEFORE the import map
+      to ensure overrides are applied before the browser processes the import map
     -->
-    <script type="importmap">
-      {
-        "imports": {
-          "demo-module-1": "https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js",
-          "demo-module-2": "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js",
-          "demo-module-3": "https://cdn.jsdelivr.net/npm/react-router@6.15.0/dist/umd/react-router.production.min.js"
-        }
-      }
+    <script src="/loader.global.js"></script>
+
+    <!-- 
+      ADVANCED APPROACH: Directly inject script element for import map manually
+      This is to ensure Vite doesn't rewrite or move the import map
+    -->
+    <script>
+      // Create an import map element
+      const importMap = document.createElement("script");
+      importMap.type = "importmap";
+
+      // Set the initial import map content
+      const initialMap = {
+        imports: {
+          "demo-module-1":
+            "https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js",
+          "demo-module-2":
+            "https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js",
+          "demo-module-3":
+            "https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js",
+        },
+      };
+
+      // Set the import map content
+      importMap.textContent = JSON.stringify(initialMap, null, 2);
+
+      // Add to DOM
+      document.currentScript.after(importMap);
+
+      console.log("Import map manually injected into DOM:", initialMap);
     </script>
   </head>
   <body>
