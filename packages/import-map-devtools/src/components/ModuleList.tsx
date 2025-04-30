@@ -19,21 +19,26 @@ interface ActiveOverrides {
   [moduleName: string]: string;
 }
 
+// Type for tracking URL validation status
+interface ValidationStatus {
+  isValid: boolean | null; // null means not validated yet
+  isValidating: boolean;
+  error?: string;
+}
+
 // Custom debounce function
-function useDebounce<T extends (...args: unknown[]) => unknown>(
-  callback: T,
-  delay: number
-) {
+function useDebounce<T>(callback: T, delay: number) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   return useCallback(
-    (...args: Parameters<T>) => {
+    (...args: unknown[]) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
 
       timeoutRef.current = setTimeout(() => {
-        callback(...args);
+        // Type assertion is safe because we're passing through the args
+        (callback as (...callbackArgs: unknown[]) => unknown)(...args);
       }, delay);
     },
     [callback, delay]
@@ -62,6 +67,7 @@ export function ModuleList({
         isEditing: boolean;
         isSaving: boolean;
         saveSuccess: boolean | null;
+        validation: ValidationStatus;
       }
     >
   >({});
@@ -78,6 +84,7 @@ export function ModuleList({
         isEditing: boolean;
         isSaving: boolean;
         saveSuccess: boolean | null;
+        validation: ValidationStatus;
       }
     > = {};
     modules.forEach((module) => {
@@ -87,6 +94,7 @@ export function ModuleList({
           isEditing: false,
           isSaving: false,
           saveSuccess: null,
+          validation: { isValid: null, isValidating: false },
         };
       }
     });
@@ -94,6 +102,96 @@ export function ModuleList({
       setEditStates((prev) => ({ ...prev, ...newEditStates }));
     }
   }, [modules]);
+
+  // Function to validate a URL
+  const validateModuleUrl = useCallback(
+    async (url: string): Promise<ValidationStatus> => {
+      if (!url) {
+        return { isValid: false, isValidating: false, error: "URL is empty" };
+      }
+
+      try {
+        // Add a cache-busting query parameter to avoid getting cached responses
+        const urlWithParam = new URL(url);
+        urlWithParam.searchParams.append(
+          "_devtools_validate",
+          Date.now().toString()
+        );
+
+        // Fetch the URL with a HEAD request to check if it exists
+        const response = await fetch(urlWithParam.toString(), {
+          method: "HEAD",
+          // Using no-cors mode will make the request succeed but won't give us detailed status info
+          // So we'll try with cors mode first, and it might fail if CORS isn't enabled on the server
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return {
+            isValid: false,
+            isValidating: false,
+            error: `HTTP error: ${response.status}`,
+          };
+        }
+
+        // Check content type if available
+        const contentType = response.headers.get("content-type");
+        if (contentType) {
+          const isJavaScript =
+            contentType.includes("javascript") ||
+            contentType.includes("application/ecmascript") ||
+            contentType.includes("text/ecmascript") ||
+            contentType.includes("module") ||
+            contentType.includes("json") || // For import maps
+            (contentType.includes("text/plain") && url.endsWith(".js"));
+
+          if (!isJavaScript) {
+            return {
+              isValid: false,
+              isValidating: false,
+              error: `Not a JavaScript file: ${contentType}`,
+            };
+          }
+        }
+
+        return { isValid: true, isValidating: false };
+      } catch (error) {
+        return {
+          isValid: false,
+          isValidating: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    },
+    []
+  );
+
+  // Debounced validation function
+  const debouncedValidate = useDebounce(
+    async (moduleName: string, value: string) => {
+      // Set validating state
+      setEditStates((prev) => ({
+        ...prev,
+        [moduleName]: {
+          ...prev[moduleName],
+          validation: { ...prev[moduleName].validation, isValidating: true },
+        },
+      }));
+
+      // Validate URL
+      const validationResult = await validateModuleUrl(value);
+
+      // Update state with validation result
+      setEditStates((prev) => ({
+        ...prev,
+        [moduleName]: {
+          ...prev[moduleName],
+          validation: validationResult,
+        },
+      }));
+    },
+    800
+  );
 
   // Save handler with feedback
   const handleSave = useCallback(
@@ -136,7 +234,9 @@ export function ModuleList({
   );
 
   // Create debounced save function
-  const debouncedSave = useDebounce(handleSave, 800);
+  const debouncedSave = useDebounce((moduleName: string, value: string) => {
+    handleSave(moduleName, value);
+  }, 800);
 
   const handleInputChange = (moduleName: string, value: string) => {
     setEditStates((prev) => ({
@@ -148,6 +248,7 @@ export function ModuleList({
       },
     }));
     debouncedSave(moduleName, value);
+    debouncedValidate(moduleName, value);
   };
 
   const handleInputFocus = (moduleName: string) => {
@@ -208,8 +309,11 @@ export function ModuleList({
       // Then save the change
       handleSave(moduleName, url);
       setOpenPopoverId(null); // Close popover after applying
+
+      // Also validate the URL
+      debouncedValidate(moduleName, url);
     },
-    [handleSave]
+    [handleSave, debouncedValidate]
   );
 
   // Handler for resetting a module override
@@ -225,14 +329,18 @@ export function ModuleList({
             ...prev[moduleName],
             value: module.originalUrl,
             saveSuccess: null,
+            validation: { isValid: null, isValidating: false },
           },
         }));
 
         // Then reset the override
         onReset(moduleName);
+
+        // Validate the original URL
+        debouncedValidate(moduleName, module.originalUrl);
       }
     },
-    [modules, onReset]
+    [modules, onReset, debouncedValidate]
   );
 
   // Format the relative time for display
@@ -278,6 +386,7 @@ export function ModuleList({
           isEditing: false,
           isSaving: false,
           saveSuccess: null,
+          validation: { isValid: null, isValidating: false },
         };
 
         const isOverridden = !!module.overrideUrl;
@@ -463,7 +572,80 @@ export function ModuleList({
                     <span className="animate-pulse">●</span>
                   </div>
                 )}
+
+                {/* Validation status indicators moved below input */}
               </div>
+
+              {/* Validation status row */}
+              {(editState.validation.isValidating ||
+                editState.validation.isValid === true ||
+                editState.validation.isValid === false) && (
+                <div className="flex items-center mt-1 text-xs">
+                  {editState.validation.isValidating && (
+                    <div className="flex items-center text-blue-500">
+                      <svg
+                        className="animate-spin h-3 w-3 mr-1.5"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Checking URL...
+                    </div>
+                  )}
+
+                  {editState.validation.isValid === true &&
+                    !editState.validation.isValidating && (
+                      <div className="flex items-center text-emerald-500 dark:text-emerald-400">
+                        <svg
+                          className="h-3 w-3 mr-1.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          ></path>
+                        </svg>
+                        URL is valid and accessible
+                      </div>
+                    )}
+
+                  {editState.validation.isValid === false &&
+                    !editState.validation.isValidating && (
+                      <div className="flex items-center text-red-500 dark:text-red-400">
+                        <svg
+                          className="h-3 w-3 mr-1.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          ></path>
+                        </svg>
+                        {editState.validation.error || "URL is invalid"}
+                      </div>
+                    )}
+                </div>
+              )}
 
               {isOverridden && (
                 <div className="text-xs text-slate-500 dark:text-slate-500 break-all line-through mt-1">
@@ -477,6 +659,13 @@ export function ModuleList({
           </div>
         );
       })}
+
+      {/* We can remove the tooltip styles as they're no longer needed */}
+      <style>
+        {`
+          /* Empty style block - previously had tooltip styles */
+        `}
+      </style>
     </div>
   );
 }
