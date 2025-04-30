@@ -88,6 +88,12 @@ npm run dev
 npm run build
 ```
 
+## Deployment
+
+The example app is automatically deployed to GitHub Pages when changes are pushed to the main branch. You can also manually trigger the deployment workflow from the GitHub Actions tab.
+
+To view the deployed example app, visit: [Import Map Devtools Demo](https://[your-github-username].github.io/import-map-devtools/)
+
 ## License
 
 MIT

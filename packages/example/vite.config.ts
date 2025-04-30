@@ -44,6 +44,8 @@ const copyLoaderPlugin = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Use relative paths for GitHub Pages deployment
+  base: "./",
   plugins: [react(), copyLoaderPlugin()],
   resolve: {
     alias: {
