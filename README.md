@@ -8,6 +8,8 @@ Import Map Devtools is a modern UI for the [import-map-overrides](https://github
 
 Import maps are a web standard that allow you to control how the browser resolves JavaScript module specifiers. The Import Map Devtools library makes it easy to override these mappings, helping you develop and debug microfrontend applications without needing to set up complex local environments.
 
+![Import Map Devtools Screenshot](docs/images/screenshot.png)
+
 ## Features
 
 - 🎨 Modern UI built with React and Tailwind CSS
@@ -22,25 +24,11 @@ Import maps are a web standard that allow you to control how the browser resolve
 
 ### Installation
 
-```bash
-npm install import-map-devtools
-```
-
-### Loader Script (Important!)
-
 For import map overrides to work correctly, you **must** include the loader script **before** any import maps in your HTML:
-
-1. Copy the loader script from node_modules to your web server's public directory:
-
-```bash
-cp node_modules/import-map-devtools/dist/loader.global.js public/
-```
-
-2. Include the script in your HTML before any import maps:
 
 ```html
 <!-- Import Map Devtools Loader - include BEFORE import maps -->
-<script src="/loader.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/import-map-devtools/dist/loader.global.js"></script>
 
 <!-- Your import maps come after the loader -->
 <script type="importmap">
@@ -93,9 +81,6 @@ This project uses a monorepo structure:
 ### Setup
 
 ```bash
-# Install dependencies
-npm install
-
 # Start the example app
 npm run dev
 
