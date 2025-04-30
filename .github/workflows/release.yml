@@ -55,8 +55,9 @@ jobs:
         id: commit_info
         if: github.event_name == 'push'
         run: |
-          COMMIT_MESSAGE="${{ github.event.commits[0].message }}"
-          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+          # Escape potential special characters in the commit message
+          COMMIT_MESSAGE=$(echo "${{ github.event.commits[0].message }}" | sed 's/\\/\\\\/g' | sed 's/\n/\\n/g' | sed 's/:/\\:/g')
+          echo "commit_message=${COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
           # Exit early if this is a version bump commit to avoid infinite loops
           if [[ "$COMMIT_MESSAGE" == *"chore: bump version"* ]]; then
             echo "This is a version bump commit, skipping to avoid loops"
@@ -70,8 +71,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        # Use force flag to bypass peer dependency warnings that might occur due to package name changes
-        run: npm ci --force
+        run: npm ci
 
       #
       # DETERMINE VERSION
@@ -222,8 +222,6 @@ jobs:
         run: npm run build
 
       - name: Publish to GitHub Packages
-        run: |
-          echo "Publishing @${{ github.repository_owner }}/import-map-devtools to GitHub Packages..."
-          cd packages/import-map-devtools && npm publish
+        run: cd packages/import-map-devtools && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
