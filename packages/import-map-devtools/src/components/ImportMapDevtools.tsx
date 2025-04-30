@@ -1,8 +1,7 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { useImportMap } from "../hooks/useImportMap";
 import { ModuleList } from "./ModuleList";
 import { Button } from "./ui/button";
-import { ModuleEditDialog } from "./ModuleEditDialog";
 import { ImportMapModule } from "../services/import-map";
 import { Input } from "./ui/input";
 
@@ -20,10 +19,6 @@ export function ImportMapDevtools({
   buttonVariant = "solid",
 }: ImportMapDevtoolsProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedModule, setSelectedModule] = useState<ImportMapModule | null>(
-    null
-  );
   const [filter, setFilter] = useState("");
 
   const {
@@ -33,16 +28,6 @@ export function ImportMapDevtools({
     removeOverride,
     resetAllOverrides,
   } = useImportMap();
-
-  const handleOpenDialog = useCallback((module: ImportMapModule) => {
-    setSelectedModule(module);
-    setIsDialogOpen(true);
-  }, []);
-
-  const handleCloseDialog = useCallback(() => {
-    setIsDialogOpen(false);
-    setSelectedModule(null);
-  }, []);
 
   const filteredModules = modules.filter(
     (module) =>
@@ -224,21 +209,14 @@ export function ImportMapDevtools({
               ) : (
                 <ModuleList
                   modules={filteredModules}
-                  onEdit={handleOpenDialog}
                   onReset={removeOverride}
+                  onSave={overrideModule}
                 />
               )}
             </div>
           </div>
         </div>
       )}
-
-      <ModuleEditDialog
-        isOpen={isDialogOpen}
-        onClose={handleCloseDialog}
-        module={selectedModule}
-        onSave={overrideModule}
-      />
     </>
   );
 }
