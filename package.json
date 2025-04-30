@@ -8,9 +8,12 @@
   ],
   "scripts": {
     "dev": "npm run dev -w packages/example",
+    "dev:lib": "npm run dev -w packages/import-map-devtools",
     "build": "npm run build -w packages/import-map-devtools",
     "build:all": "npm run build -w packages/import-map-devtools && npm run build -w packages/example",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "npm run lint -w packages/import-map-devtools",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist"
   },
   "keywords": [
     "import-map",
