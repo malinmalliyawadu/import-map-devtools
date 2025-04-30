@@ -188,10 +188,44 @@ export function ModuleList({
   // Handler for applying a previous override
   const handleApplyPreviousOverride = useCallback(
     (moduleName: string, url: string) => {
+      // Update the edit state first so UI reflects the change immediately
+      setEditStates((prev) => ({
+        ...prev,
+        [moduleName]: {
+          ...prev[moduleName],
+          value: url,
+          saveSuccess: null,
+        },
+      }));
+
+      // Then save the change
       handleSave(moduleName, url);
       setOpenPopoverId(null); // Close popover after applying
     },
     [handleSave]
+  );
+
+  // Handler for resetting a module override
+  const handleReset = useCallback(
+    (moduleName: string) => {
+      // Find the module
+      const module = modules.find((m) => m.moduleName === moduleName);
+      if (module) {
+        // Update the edit state to show the original URL
+        setEditStates((prev) => ({
+          ...prev,
+          [moduleName]: {
+            ...prev[moduleName],
+            value: module.originalUrl,
+            saveSuccess: null,
+          },
+        }));
+
+        // Then reset the override
+        onReset(moduleName);
+      }
+    },
+    [modules, onReset]
   );
 
   // Format the relative time for display
@@ -387,7 +421,7 @@ export function ModuleList({
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => onReset(module.moduleName)}
+                      onClick={() => handleReset(module.moduleName)}
                       className="text-xs py-1 px-2 h-auto font-normal"
                     >
                       Reset
