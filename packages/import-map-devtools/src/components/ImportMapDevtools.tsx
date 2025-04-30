@@ -42,6 +42,8 @@ export function ImportMapDevtools({
   const [, setOriginalImportMap] = useState<Record<string, string> | null>(
     null
   );
+  // Animation state for dialog opening/closing
+  const [isClosing, setIsClosing] = useState(false);
 
   const {
     modules,
@@ -175,16 +177,28 @@ export function ImportMapDevtools({
 
   const buttonVariantClasses = {
     solid:
-      "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/40 shadow-indigo-500/20 transition-all duration-200",
+      "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/40 shadow-indigo-500/20 transition-all duration-300",
     outline:
-      "bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 hover:border-indigo-500 hover:shadow-indigo-500/30 shadow-md transition-all duration-200",
+      "bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 hover:border-indigo-500 hover:shadow-indigo-500/30 shadow-md transition-all duration-300",
     minimal:
-      "bg-white/90 hover:bg-white text-gray-800 shadow-md hover:shadow-lg backdrop-blur-sm transition-all duration-200",
+      "bg-white/90 hover:bg-white text-gray-800 shadow-md hover:shadow-lg backdrop-blur-sm transition-all duration-300",
     glass:
-      "bg-white/30 hover:bg-white/40 backdrop-blur-md text-slate-800 border border-white/50 shadow-xl hover:shadow-2xl shadow-white/20 hover:shadow-white/30 transition-all duration-200",
+      "bg-white/30 hover:bg-white/40 backdrop-blur-md text-slate-800 border border-white/50 shadow-xl hover:shadow-2xl shadow-white/20 hover:shadow-white/30 transition-all duration-300",
   };
 
-  const toggleOpen = () => setIsOpen(!isOpen);
+  // Controlled open/close with animation
+  const handleOpen = () => {
+    setIsOpen(true);
+    setIsClosing(false);
+  };
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 300); // Match this with animation duration
+  };
 
   // Check if we have any overrides
   const hasOverrides = filteredModules.some((m) => !!m.overrideUrl);
@@ -197,13 +211,13 @@ export function ImportMapDevtools({
   return (
     <>
       <button
-        onClick={toggleOpen}
-        className={`fixed ${positionClasses[buttonPosition]} z-50 font-medium py-2 px-4 rounded-full ${buttonVariantClasses[buttonVariant]} flex items-center space-x-2 transform hover:scale-105 transition-all duration-200 ${className} group`}
+        onClick={handleOpen}
+        className={`fixed ${positionClasses[buttonPosition]} z-50 font-medium py-2 px-4 rounded-full ${buttonVariantClasses[buttonVariant]} flex items-center space-x-2 transform hover:scale-105 active:scale-95 transition-all duration-300 ${className} group`}
         aria-label="Toggle Import Map Devtools"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5 group-hover:rotate-12 transition-transform duration-200"
+          className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -213,9 +227,16 @@ export function ImportMapDevtools({
             clipRule="evenodd"
           />
         </svg>
-        <span>{buttonText}</span>
+        <span className="relative overflow-hidden">
+          <span className="group-hover:translate-y-full group-hover:opacity-0 transition-all duration-300 inline-block">
+            {buttonText}
+          </span>
+          <span className="absolute top-0 left-0 -translate-y-full group-hover:translate-y-0 transition-all duration-300">
+            {buttonText}
+          </span>
+        </span>
         {activeOverrideCount > 0 && (
-          <span className="ml-1 bg-white text-indigo-600 font-semibold text-xs py-0.5 px-1.5 rounded-full inline-flex items-center justify-center min-w-[1.25rem] shadow-inner shadow-indigo-100">
+          <span className="ml-1 bg-white text-indigo-600 font-semibold text-xs py-0.5 px-1.5 rounded-full inline-flex items-center justify-center min-w-[1.25rem] shadow-inner shadow-indigo-100 group-hover:scale-110 transition-transform duration-300">
             {activeOverrideCount}
           </span>
         )}
@@ -223,15 +244,23 @@ export function ImportMapDevtools({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 animate-in fade-in"
+          className={`fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
+            isClosing ? "animate-out fade-out" : "animate-in fade-in"
+          }`}
           onClick={(e) => {
-            if (e.target === e.currentTarget) toggleOpen();
+            if (e.target === e.currentTarget) handleClose();
           }}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-10 duration-300 overflow-hidden">
-            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4 bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-800 dark:to-violet-800 text-white shadow-md">
+          <div
+            className={`bg-white dark:bg-slate-900 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 overflow-hidden transition-all duration-300 ${
+              isClosing
+                ? "animate-out slide-out-to-bottom-10 duration-300 zoom-out-95"
+                : "animate-in slide-in-from-bottom-10 duration-300 zoom-in-95"
+            }`}
+          >
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4 bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-800 dark:to-violet-800 text-white shadow-md animate-in fade-in-75 slide-in-from-top-2 duration-500">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/20 rounded-lg shadow-inner shadow-black/10">
+                <div className="p-2 bg-white/20 rounded-lg shadow-inner shadow-black/10 animate-in fade-in zoom-in-75 duration-700 delay-100">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-6 w-6"
@@ -245,18 +274,18 @@ export function ImportMapDevtools({
                     />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-shadow">
+                <h2 className="text-xl font-bold text-shadow animate-in slide-in-from-left-4 duration-700 delay-150">
                   Import Map Overrides
                 </h2>
                 {activeOverrideCount > 0 && (
-                  <span className="bg-white text-indigo-600 font-semibold text-xs py-1 px-2 rounded-full shadow shadow-black/10">
+                  <span className="bg-white text-indigo-600 font-semibold text-xs py-1 px-2 rounded-full shadow shadow-black/10 animate-in fade-in zoom-in duration-700 delay-200">
                     {activeOverrideCount} active
                   </span>
                 )}
               </div>
               <button
-                onClick={toggleOpen}
-                className="text-white/80 hover:text-white rounded-full p-2 hover:bg-white/10 transition-colors"
+                onClick={handleClose}
+                className="text-white/80 hover:text-white rounded-full p-2 hover:bg-white/10 transition-colors hover:rotate-90 transition-transform duration-300"
                 aria-label="Close Import Map Devtools"
               >
                 <svg
@@ -276,12 +305,12 @@ export function ImportMapDevtools({
               </button>
             </div>
 
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 bg-slate-50 dark:bg-slate-800/50 shadow-sm">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 bg-slate-50 dark:bg-slate-800/50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-700 delay-200">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="relative flex-1 group">
+                <div className="relative flex-1 group animate-in fade-in-50 slide-in-from-left-4 duration-700 delay-300">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg
-                      className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors duration-200"
+                      className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors duration-300"
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
                       fill="currentColor"
@@ -297,12 +326,12 @@ export function ImportMapDevtools({
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     placeholder="Filter modules..."
-                    className="pl-10 pr-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 shadow-md transition-shadow duration-200 focus:shadow-lg"
+                    className="pl-10 pr-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 shadow-md transition-shadow duration-300 focus:shadow-lg"
                   />
                   {filter && (
                     <button
                       onClick={() => setFilter("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm hover:shadow"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm hover:shadow active:scale-90 transition-transform"
                       aria-label="Clear filter"
                     >
                       <svg
@@ -320,16 +349,16 @@ export function ImportMapDevtools({
                     </button>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 animate-in fade-in-50 slide-in-from-right-4 duration-700 delay-300">
                   <Button
                     variant="destructive"
                     onClick={resetAllOverrides}
-                    className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all flex items-center gap-1"
+                    className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all flex items-center gap-1 active:scale-95 transition-transform"
                     disabled={!hasOverrides}
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
+                      className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -347,17 +376,17 @@ export function ImportMapDevtools({
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-white dark:bg-slate-900 rounded-b-xl">
+            <div className="flex-1 overflow-auto p-4 bg-white dark:bg-slate-900 rounded-b-xl animate-in fade-in-75 slide-in-from-bottom-4 duration-700 delay-300">
               {isLoading ? (
                 <div className="flex flex-col justify-center items-center h-40 space-y-4">
                   <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent shadow-md"></div>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm animate-pulse">
                     Loading modules...
                   </p>
                 </div>
               ) : filteredModules.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-center p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-800 shadow-lg">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full mb-4 shadow-inner">
+                <div className="flex flex-col items-center justify-center h-40 text-center p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-800 shadow-lg animate-in fade-in zoom-in-95 duration-700">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full mb-4 shadow-inner animate-in zoom-in-50 duration-700 delay-100">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="h-8 w-8 text-slate-400"
@@ -373,23 +402,25 @@ export function ImportMapDevtools({
                       />
                     </svg>
                   </div>
-                  <h3 className="text-slate-700 dark:text-slate-300 font-medium mb-1 drop-shadow">
+                  <h3 className="text-slate-700 dark:text-slate-300 font-medium mb-1 drop-shadow animate-in fade-in-50 slide-in-from-bottom-2 duration-700 delay-150">
                     No modules found
                   </h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm animate-in fade-in-50 slide-in-from-bottom-1 duration-700 delay-200">
                     {filter
                       ? "No modules match your filter. Try a different search term."
                       : "No modules found. Make sure you have an import map on this page."}
                   </p>
                 </div>
               ) : (
-                <ModuleList
-                  modules={filteredModules}
-                  onReset={handleResetModule}
-                  onSave={handleOverrideModule}
-                  moduleOverrideHistory={moduleOverrideHistory}
-                  activeOverrides={activeOverrides}
-                />
+                <div className="animate-in fade-in-75 duration-500 delay-300">
+                  <ModuleList
+                    modules={filteredModules}
+                    onReset={handleResetModule}
+                    onSave={handleOverrideModule}
+                    moduleOverrideHistory={moduleOverrideHistory}
+                    activeOverrides={activeOverrides}
+                  />
+                </div>
               )}
             </div>
           </div>
