@@ -24,7 +24,7 @@ interface ImportMapDevtoolsProps {
   buttonPosition?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   buttonText?: string;
   className?: string;
-  buttonVariant?: "solid" | "outline" | "minimal";
+  buttonVariant?: "solid" | "outline" | "minimal" | "glass";
 }
 
 export function ImportMapDevtools({
@@ -175,11 +175,13 @@ export function ImportMapDevtools({
 
   const buttonVariantClasses = {
     solid:
-      "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/30 transition-all duration-200",
+      "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-indigo-500/40 transition-all duration-200",
     outline:
-      "bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 hover:border-indigo-500 shadow-sm",
+      "bg-white hover:bg-gray-50 text-indigo-600 border border-indigo-300 hover:border-indigo-500 hover:shadow-indigo-500/20 shadow-sm",
     minimal:
-      "bg-white/80 hover:bg-white text-gray-800 shadow-sm backdrop-blur-sm",
+      "bg-white/90 hover:bg-white text-gray-800 shadow-sm backdrop-blur-sm",
+    glass:
+      "bg-white/30 hover:bg-white/40 backdrop-blur-md text-slate-800 border border-white/50 shadow-xl hover:shadow-white/20",
   };
 
   const toggleOpen = () => setIsOpen(!isOpen);
@@ -187,15 +189,21 @@ export function ImportMapDevtools({
   // Check if we have any overrides
   const hasOverrides = filteredModules.some((m) => !!m.overrideUrl);
 
+  // Count active overrides
+  const activeOverrideCount = filteredModules.filter(
+    (m) => !!m.overrideUrl
+  ).length;
+
   return (
     <>
       <button
         onClick={toggleOpen}
-        className={`fixed ${positionClasses[buttonPosition]} z-50 font-medium py-2 px-4 rounded-full ${buttonVariantClasses[buttonVariant]} flex items-center space-x-2 transform hover:scale-105 transition-all duration-200 ${className}`}
+        className={`fixed ${positionClasses[buttonPosition]} z-50 font-medium py-2 px-4 rounded-full ${buttonVariantClasses[buttonVariant]} flex items-center space-x-2 transform hover:scale-105 transition-all duration-200 ${className} group`}
+        aria-label="Toggle Import Map Devtools"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
+          className="h-5 w-5 group-hover:rotate-12 transition-transform duration-200"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -206,27 +214,52 @@ export function ImportMapDevtools({
           />
         </svg>
         <span>{buttonText}</span>
+        {activeOverrideCount > 0 && (
+          <span className="ml-1 bg-white text-indigo-600 font-semibold text-xs py-0.5 px-1.5 rounded-full inline-flex items-center justify-center min-w-[1.25rem]">
+            {activeOverrideCount}
+          </span>
+        )}
       </button>
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 animate-in fade-in"
+          className="fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 animate-in fade-in"
           onClick={(e) => {
             if (e.target === e.currentTarget) toggleOpen();
           }}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-10 duration-300">
-            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4">
-              <h2 className="text-xl font-bold bg-gradient-to-r bg-clip-text text-white">
-                Import Map Overrides
-              </h2>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-10 duration-300 overflow-hidden">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4 bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-800 dark:to-violet-800 text-white">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold">Import Map Overrides</h2>
+                {activeOverrideCount > 0 && (
+                  <span className="bg-white text-indigo-600 font-semibold text-xs py-1 px-2 rounded-full">
+                    {activeOverrideCount} active
+                  </span>
+                )}
+              </div>
               <button
                 onClick={toggleOpen}
-                className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="text-white/80 hover:text-white rounded-full p-2 hover:bg-white/10 transition-colors"
+                aria-label="Close Import Map Devtools"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
+                  className="h-5 w-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -241,12 +274,12 @@ export function ImportMapDevtools({
               </button>
             </div>
 
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 bg-slate-50 dark:bg-slate-800/50">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="relative flex-1">
+                <div className="relative flex-1 group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg
-                      className="h-5 w-5 text-slate-400"
+                      className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors duration-200"
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
                       fill="currentColor"
@@ -262,16 +295,17 @@ export function ImportMapDevtools({
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     placeholder="Filter modules..."
-                    className="pl-10 pr-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400"
+                    className="pl-10 pr-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 shadow-sm transition-shadow duration-200 focus:shadow-md"
                   />
                   {filter && (
                     <button
                       onClick={() => setFilter("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      aria-label="Clear filter"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5"
+                        className="h-4 w-4"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
@@ -288,39 +322,61 @@ export function ImportMapDevtools({
                   <Button
                     variant="destructive"
                     onClick={resetAllOverrides}
-                    className="w-full sm:w-auto shadow-sm hover:shadow transition-all"
+                    className="w-full sm:w-auto shadow-sm hover:shadow transition-all flex items-center gap-1"
                     disabled={!hasOverrides}
                   >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
                     Reset All
                   </Button>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex-1 overflow-auto p-4 bg-white dark:bg-slate-900 rounded-b-xl">
               {isLoading ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+                <div className="flex flex-col justify-center items-center h-40 space-y-4">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent"></div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    Loading modules...
+                  </p>
                 </div>
               ) : filteredModules.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 text-center p-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-12 w-12 text-slate-400 mb-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <p className="text-slate-500 dark:text-slate-400">
+                <div className="flex flex-col items-center justify-center h-40 text-center p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full mb-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8 text-slate-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-slate-700 dark:text-slate-300 font-medium mb-1">
+                    No modules found
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
                     {filter
-                      ? "No modules match your filter"
+                      ? "No modules match your filter. Try a different search term."
                       : "No modules found. Make sure you have an import map on this page."}
                   </p>
                 </div>
