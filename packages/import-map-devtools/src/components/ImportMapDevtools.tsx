@@ -1,9 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useImportMap } from "../hooks/useImportMap";
 import { ModuleList } from "./ModuleList";
 import { Button } from "./ui/button";
 import { ImportMapModule } from "../services/import-map";
 import { Input } from "./ui/input";
+
+// Type for storing module override history entries
+interface OverrideHistoryEntry {
+  url: string;
+  timestamp: number; // Unix timestamp
+}
+
+// Type for storing override history by module name
+interface ModuleOverrideHistory {
+  [moduleName: string]: OverrideHistoryEntry[];
+}
+
+// Type for storing active overrides by module name
+interface ActiveOverrides {
+  [moduleName: string]: string;
+}
 
 interface ImportMapDevtoolsProps {
   buttonPosition?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
@@ -20,6 +36,14 @@ export function ImportMapDevtools({
 }: ImportMapDevtoolsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  // Track override history separately from active overrides
+  const [moduleOverrideHistory, setModuleOverrideHistory] =
+    useState<ModuleOverrideHistory>({});
+  const [activeOverrides, setActiveOverrides] = useState<ActiveOverrides>({});
+  const [originalImportMap, setOriginalImportMap] = useState<Record<
+    string,
+    string
+  > | null>(null);
 
   const {
     modules,
@@ -28,6 +52,113 @@ export function ImportMapDevtools({
     removeOverride,
     resetAllOverrides,
   } = useImportMap();
+
+  // Restore all saved state from localStorage on initial load
+  useEffect(() => {
+    try {
+      // Restore original import map if it exists
+      const savedOriginal = localStorage.getItem(
+        "import-map-devtools-original"
+      );
+      if (savedOriginal) {
+        setOriginalImportMap(JSON.parse(savedOriginal));
+      }
+
+      // Restore active overrides
+      const savedActiveOverrides = localStorage.getItem(
+        "import-map-devtools-active-overrides"
+      );
+      if (savedActiveOverrides) {
+        setActiveOverrides(JSON.parse(savedActiveOverrides));
+      }
+
+      // Restore override history
+      const savedHistory = localStorage.getItem(
+        "import-map-devtools-override-history"
+      );
+      if (savedHistory) {
+        setModuleOverrideHistory(JSON.parse(savedHistory));
+      }
+    } catch (error) {
+      console.error("Failed to restore saved state:", error);
+    }
+  }, []);
+
+  // Wrapper for override module that also saves the override by module
+  const handleOverrideModule = (moduleName: string, url: string) => {
+    overrideModule(moduleName, url);
+
+    // Get current time for history entry
+    const timestamp = Date.now();
+
+    // Update active overrides
+    const newActiveOverrides = { ...activeOverrides, [moduleName]: url };
+    setActiveOverrides(newActiveOverrides);
+
+    // Update the module override history
+    const newHistory = { ...moduleOverrideHistory };
+
+    // If this module doesn't have a history yet, create an array
+    if (!newHistory[moduleName]) {
+      newHistory[moduleName] = [];
+    }
+
+    // Add new history entry (avoid duplicates)
+    const existingEntryIndex = newHistory[moduleName].findIndex(
+      (entry) => entry.url === url
+    );
+    if (existingEntryIndex >= 0) {
+      // Update timestamp on existing entry
+      newHistory[moduleName][existingEntryIndex].timestamp = timestamp;
+    } else {
+      // Add new entry
+      newHistory[moduleName].push({ url, timestamp });
+    }
+
+    // Sort by most recent
+    newHistory[moduleName].sort((a, b) => b.timestamp - a.timestamp);
+
+    // Keep only the most recent 10 entries
+    if (newHistory[moduleName].length > 10) {
+      newHistory[moduleName] = newHistory[moduleName].slice(0, 10);
+    }
+
+    setModuleOverrideHistory(newHistory);
+
+    // Save to localStorage
+    try {
+      localStorage.setItem(
+        "import-map-devtools-active-overrides",
+        JSON.stringify(newActiveOverrides)
+      );
+      localStorage.setItem(
+        "import-map-devtools-override-history",
+        JSON.stringify(newHistory)
+      );
+    } catch (error) {
+      console.error("Failed to save state:", error);
+    }
+  };
+
+  // Handle reset for a specific module
+  const handleResetModule = (moduleName: string) => {
+    removeOverride(moduleName);
+
+    // Remove from active overrides (but keep in history)
+    const newActiveOverrides = { ...activeOverrides };
+    delete newActiveOverrides[moduleName];
+    setActiveOverrides(newActiveOverrides);
+
+    // Update localStorage
+    try {
+      localStorage.setItem(
+        "import-map-devtools-active-overrides",
+        JSON.stringify(newActiveOverrides)
+      );
+    } catch (error) {
+      console.error("Failed to save after reset:", error);
+    }
+  };
 
   const filteredModules = modules.filter(
     (module) =>
@@ -54,6 +185,9 @@ export function ImportMapDevtools({
   };
 
   const toggleOpen = () => setIsOpen(!isOpen);
+
+  // Check if we have any overrides
+  const hasOverrides = filteredModules.some((m) => !!m.overrideUrl);
 
   return (
     <>
@@ -152,13 +286,14 @@ export function ImportMapDevtools({
                     </button>
                   )}
                 </div>
-                <div>
+                <div className="flex gap-2">
                   <Button
                     variant="destructive"
                     onClick={resetAllOverrides}
                     className="w-full sm:w-auto shadow-sm hover:shadow transition-all"
+                    disabled={!hasOverrides}
                   >
-                    Reset All Overrides
+                    Reset All
                   </Button>
                 </div>
               </div>
@@ -194,8 +329,10 @@ export function ImportMapDevtools({
               ) : (
                 <ModuleList
                   modules={filteredModules}
-                  onReset={removeOverride}
-                  onSave={overrideModule}
+                  onReset={handleResetModule}
+                  onSave={handleOverrideModule}
+                  moduleOverrideHistory={moduleOverrideHistory}
+                  activeOverrides={activeOverrides}
                 />
               )}
             </div>

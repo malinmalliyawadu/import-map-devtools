@@ -3,6 +3,22 @@ import { ImportMapModule } from "../services/import-map";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
+// Type for storing module override history entries
+interface OverrideHistoryEntry {
+  url: string;
+  timestamp: number; // Unix timestamp
+}
+
+// Type for storing override history by module name
+interface ModuleOverrideHistory {
+  [moduleName: string]: OverrideHistoryEntry[];
+}
+
+// Type for storing active overrides by module name
+interface ActiveOverrides {
+  [moduleName: string]: string;
+}
+
 // Custom debounce function
 function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
@@ -28,9 +44,17 @@ interface ModuleListProps {
   modules: ImportMapModule[];
   onReset: (moduleName: string) => void;
   onSave: (moduleName: string, url: string) => void;
+  moduleOverrideHistory: ModuleOverrideHistory;
+  activeOverrides: ActiveOverrides;
 }
 
-export function ModuleList({ modules, onReset, onSave }: ModuleListProps) {
+export function ModuleList({
+  modules,
+  onReset,
+  onSave,
+  moduleOverrideHistory,
+  activeOverrides,
+}: ModuleListProps) {
   const [editStates, setEditStates] = useState<
     Record<
       string,
@@ -42,6 +66,9 @@ export function ModuleList({ modules, onReset, onSave }: ModuleListProps) {
       }
     >
   >({});
+
+  // Track which popover is open
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
   // Initialize edit states for all modules
   useEffect(() => {
@@ -136,6 +163,64 @@ export function ModuleList({ modules, onReset, onSave }: ModuleListProps) {
     }));
   };
 
+  // Toggle popover open/close
+  const togglePopover = (moduleId: string) => {
+    setOpenPopoverId((prevId) => (prevId === moduleId ? null : moduleId));
+  };
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        openPopoverId &&
+        !(event.target as Element).closest(".override-popover")
+      ) {
+        setOpenPopoverId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openPopoverId]);
+
+  // Handler for applying a previous override
+  const handleApplyPreviousOverride = useCallback(
+    (moduleName: string, url: string) => {
+      handleSave(moduleName, url);
+      setOpenPopoverId(null); // Close popover after applying
+    },
+    [handleSave]
+  );
+
+  // Format the relative time for display
+  const formatRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    if (seconds > 10) return `${seconds}s ago`;
+    return "Just now";
+  };
+
+  // Get available overrides for a module (history for this module)
+  const getAvailableOverrides = (
+    module: ImportMapModule
+  ): OverrideHistoryEntry[] => {
+    const moduleHistory = moduleOverrideHistory[module.moduleName] || [];
+
+    // Filter out the current override URL if it exists
+    return moduleHistory.filter((entry) => entry.url !== module.overrideUrl);
+  };
+
   if (modules.length === 0) {
     return (
       <div className="p-4 text-center text-slate-500 dark:text-slate-400">
@@ -157,6 +242,12 @@ export function ModuleList({ modules, onReset, onSave }: ModuleListProps) {
         const isOverridden = !!module.overrideUrl;
         const isDirty =
           editState.value !== (module.overrideUrl || module.originalUrl);
+
+        // Get available overrides for this module
+        const availableOverrides = getAvailableOverrides(module);
+        const hasOverrideHistory = availableOverrides.length > 0;
+        const popoverId = `popover-${module.moduleName}`;
+        const isPopoverOpen = openPopoverId === popoverId;
 
         return (
           <div
@@ -216,12 +307,88 @@ export function ModuleList({ modules, onReset, onSave }: ModuleListProps) {
                       Saved
                     </span>
                   )}
+                  {hasOverrideHistory && (
+                    <div className="relative override-popover">
+                      <Button
+                        onClick={() => togglePopover(popoverId)}
+                        variant="outline"
+                        size="sm"
+                        title="View override history"
+                        aria-expanded={isPopoverOpen}
+                        aria-controls={popoverId}
+                        className={`text-xs py-1 px-2 h-auto font-normal ${
+                          isPopoverOpen
+                            ? "bg-indigo-200 text-indigo-800 border-indigo-300 hover:bg-indigo-200/90 dark:bg-indigo-800/60 dark:text-indigo-200 dark:border-indigo-700"
+                            : "bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-200 hover:text-white dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800/30 dark:hover:bg-indigo-800/60 dark:hover:text-white"
+                        }`}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3 mr-1"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        History
+                      </Button>
+                      {isPopoverOpen && (
+                        <div
+                          id={popoverId}
+                          className="override-popover absolute right-0 top-full mt-1 w-auto p-2 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-slate-200 dark:border-slate-700 z-10 animate-in fade-in zoom-in-95 duration-100"
+                        >
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">
+                            Override history for this module:
+                          </div>
+                          <div className="max-h-52 overflow-y-auto">
+                            {availableOverrides.map((entry, i) => (
+                              <button
+                                key={i}
+                                onClick={() =>
+                                  handleApplyPreviousOverride(
+                                    module.moduleName,
+                                    entry.url
+                                  )
+                                }
+                                className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 mb-1 last:mb-0 flex items-center font-mono truncate text-slate-700 dark:text-slate-300"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-3 w-3 mr-1.5 text-indigo-500 dark:text-indigo-400 flex-shrink-0"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                                <div className="flex-1 flex justify-between items-center min-w-0">
+                                  <span className="truncate mr-1.5">
+                                    {entry.url}
+                                  </span>
+                                  <span className="text-slate-400 dark:text-slate-500 text-[10px] whitespace-nowrap">
+                                    {formatRelativeTime(entry.timestamp)}
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {isOverridden && (
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => onReset(module.moduleName)}
-                      className="font-medium"
+                      className="text-xs py-1 px-2 h-auto font-normal"
                     >
                       Reset
                     </Button>
@@ -230,6 +397,18 @@ export function ModuleList({ modules, onReset, onSave }: ModuleListProps) {
               </div>
 
               <div className="relative group">
+                {editState.isEditing && (
+                  <div className="absolute left-0 -ml-2 top-1/2 -translate-y-1/2 text-indigo-500 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </div>
+                )}
                 <Input
                   value={editState.value}
                   onChange={(e) =>
