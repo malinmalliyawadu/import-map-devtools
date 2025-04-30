@@ -15,6 +15,9 @@ export default function App() {
   const [overriddenModules, setOverriddenModules] = useState<
     Record<string, string>
   >({});
+  const [originalModules, setOriginalModules] = useState<
+    Record<string, string>
+  >({});
   const [loadedModules, setLoadedModules] = useState<Record<string, any>>({});
   const [moduleDetails, setModuleDetails] = useState<Record<string, string>>(
     {}
@@ -43,6 +46,10 @@ export default function App() {
     // Get current overrides from local storage
     const overrides = importMapService.getOverrides();
     setOverriddenModules(overrides);
+
+    // Get original URLs from local storage
+    const originals = importMapService.getOriginalUrls();
+    setOriginalModules(originals);
   };
 
   // Function to dynamically import modules from the import map
@@ -385,9 +392,39 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Display the original import map from localStorage */}
+              <div className="bg-yellow-50 p-4 rounded-md mb-8 border border-yellow-200">
+                <h3 className="text-lg font-medium mb-2">
+                  Original URLs (from localStorage):
+                </h3>
+                {Object.keys(originalModules).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(originalModules).map(
+                      ([moduleName, url]) => (
+                        <div
+                          key={moduleName}
+                          className="bg-white p-3 rounded shadow-sm"
+                        >
+                          <p className="font-medium text-yellow-700">
+                            {moduleName}
+                          </p>
+                          <p className="text-sm text-yellow-600 break-all">
+                            {url}
+                          </p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <p>No original URLs found in localStorage.</p>
+                )}
+              </div>
+
               {/* Display the original import map */}
               <div className="bg-gray-100 p-4 rounded-md mb-8">
-                <h3 className="text-lg font-medium mb-2">Original Modules:</h3>
+                <h3 className="text-lg font-medium mb-2">
+                  Current Import Map:
+                </h3>
                 {Object.keys(modules).length > 0 ? (
                   <div className="space-y-2">
                     {Object.entries(modules).map(([moduleName, url]) => (
@@ -519,8 +556,9 @@ export default function App() {
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
                             Original:{" "}
-                            {modules[moduleName] ||
-                              "Not in original import map"}
+                            {originalModules[moduleName] ||
+                              modules[moduleName] ||
+                              "Not found in original import map"}
                           </p>
                         </div>
                       )
