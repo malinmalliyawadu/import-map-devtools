@@ -44,7 +44,7 @@ export class ImportMapService {
               }
             }
           }
-        } catch (e) {
+        } catch {
           // Ignore parsing errors
         }
       }
@@ -155,7 +155,6 @@ export class ImportMapService {
     const originalUrls = this.getOriginalUrls();
     const baseMap = this.getBaseImportMap();
     const overrides = this.getOverrides();
-    const effectiveMap = this.getEffectiveImportMap();
 
     // Combine all sources to get a complete list of module names
     const allModuleNames = new Set([
@@ -356,7 +355,7 @@ export class ImportMapService {
 
     try {
       // Get the current import map content
-      let currentMap: any;
+      let currentMap: { imports: Record<string, string> };
       try {
         currentMap = JSON.parse(importMapEl.textContent || '{"imports":{}}');
       } catch (error) {
@@ -614,7 +613,7 @@ export function resetAllOverrides(): boolean {
     const originals = JSON.parse(originalsJson);
 
     // Get the import map element
-    let importMapElement = document.querySelector(
+    const importMapElement = document.querySelector(
       'script[type="importmap"]'
     ) as HTMLScriptElement;
 

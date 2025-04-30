@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useImportMap } from "../hooks/useImportMap";
 import { ModuleList } from "./ModuleList";
 import { Button } from "./ui/button";
-import { ImportMapModule } from "../services/import-map";
 import { Input } from "./ui/input";
 
 // Type for storing module override history entries
@@ -40,10 +39,9 @@ export function ImportMapDevtools({
   const [moduleOverrideHistory, setModuleOverrideHistory] =
     useState<ModuleOverrideHistory>({});
   const [activeOverrides, setActiveOverrides] = useState<ActiveOverrides>({});
-  const [originalImportMap, setOriginalImportMap] = useState<Record<
-    string,
-    string
-  > | null>(null);
+  const [, setOriginalImportMap] = useState<Record<string, string> | null>(
+    null
+  );
 
   const {
     modules,

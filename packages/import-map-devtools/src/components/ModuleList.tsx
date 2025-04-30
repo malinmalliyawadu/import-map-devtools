@@ -20,7 +20,7 @@ interface ActiveOverrides {
 }
 
 // Custom debounce function
-function useDebounce<T extends (...args: any[]) => any>(
+function useDebounce<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ) {
@@ -53,7 +53,6 @@ export function ModuleList({
   onReset,
   onSave,
   moduleOverrideHistory,
-  activeOverrides,
 }: ModuleListProps) {
   const [editStates, setEditStates] = useState<
     Record<
@@ -72,7 +71,15 @@ export function ModuleList({
 
   // Initialize edit states for all modules
   useEffect(() => {
-    const newEditStates: Record<string, any> = {};
+    const newEditStates: Record<
+      string,
+      {
+        value: string;
+        isEditing: boolean;
+        isSaving: boolean;
+        saveSuccess: boolean | null;
+      }
+    > = {};
     modules.forEach((module) => {
       if (!editStates[module.moduleName]) {
         newEditStates[module.moduleName] = {

@@ -125,11 +125,6 @@ export default function App() {
     }
   };
 
-  // Force reload the page to ensure changes take effect
-  const forceReload = () => {
-    window.location.reload();
-  };
-
   // Helper function to forcefully replace import map in DOM
   const forceReplaceImportMap = () => {
     // Get current import map from DOM - only use the first one if multiple are found
