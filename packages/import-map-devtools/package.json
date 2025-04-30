@@ -56,5 +56,6 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "access": "public"
-  }
+  },
+  "_comment": "This package uses a scoped name (@malinmalliyawadu/import-map-devtools) for publishing to GitHub Packages. The scope must match the GitHub username."
 }

@@ -70,7 +70,8 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        # Use force flag to bypass peer dependency warnings that might occur due to package name changes
+        run: npm ci --force
 
       #
       # DETERMINE VERSION
@@ -221,6 +222,8 @@ jobs:
         run: npm run build
 
       - name: Publish to GitHub Packages
-        run: cd packages/import-map-devtools && npm publish
+        run: |
+          echo "Publishing @${{ github.repository_owner }}/import-map-devtools to GitHub Packages..."
+          cd packages/import-map-devtools && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
