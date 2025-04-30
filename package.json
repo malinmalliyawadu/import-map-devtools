@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run build -w packages/import-map-devtools && npm run dev -w packages/example",
+    "dev": "npm run dev:lib & npm run dev -w packages/example",
     "dev:lib": "npm run dev -w packages/import-map-devtools",
     "build": "npm run build -w packages/import-map-devtools",
     "build:all": "npm run build -w packages/import-map-devtools && npm run build -w packages/example",
