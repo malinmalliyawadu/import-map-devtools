@@ -75,34 +75,6 @@ export function ModuleList({
   // Track which popover is open
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
-  // Initialize edit states for all modules
-  useEffect(() => {
-    const newEditStates: Record<
-      string,
-      {
-        value: string;
-        isEditing: boolean;
-        isSaving: boolean;
-        saveSuccess: boolean | null;
-        validation: ValidationStatus;
-      }
-    > = {};
-    modules.forEach((module) => {
-      if (!editStates[module.moduleName]) {
-        newEditStates[module.moduleName] = {
-          value: module.overrideUrl || module.originalUrl,
-          isEditing: false,
-          isSaving: false,
-          saveSuccess: null,
-          validation: { isValid: null, isValidating: false },
-        };
-      }
-    });
-    if (Object.keys(newEditStates).length > 0) {
-      setEditStates((prev) => ({ ...prev, ...newEditStates }));
-    }
-  }, [modules]);
-
   // Function to validate a URL
   const validateModuleUrl = useCallback(
     async (url: string): Promise<ValidationStatus> => {
@@ -166,7 +138,7 @@ export function ModuleList({
     []
   );
 
-  // Debounced validation function
+  // Debounced validation function for input changes
   const debouncedValidate = useDebounce(
     async (moduleName: string, value: string) => {
       // Set validating state
@@ -192,6 +164,121 @@ export function ModuleList({
     },
     800
   );
+
+  // Validate all module URLs when component mounts or modules change
+  useEffect(() => {
+    // Collect all modules that need validation
+    const modulesToValidate = modules.filter((module) => {
+      const currentUrl = module.overrideUrl || module.originalUrl;
+      const currentState = editStates[module.moduleName];
+
+      // Skip if already validating this URL or if we already have a valid result for this exact URL
+      return !(
+        currentState?.validation?.isValidating ||
+        (currentState?.validation?.isValid !== null &&
+          currentState?.value === currentUrl)
+      );
+    });
+
+    if (modulesToValidate.length === 0) {
+      return;
+    }
+
+    // Set all modules to validating state
+    const updatedEditStates = { ...editStates };
+    modulesToValidate.forEach((module) => {
+      const currentUrl = module.overrideUrl || module.originalUrl;
+      updatedEditStates[module.moduleName] = {
+        ...updatedEditStates[module.moduleName],
+        validation: {
+          ...(updatedEditStates[module.moduleName]?.validation || {}),
+          isValidating: true,
+        },
+      };
+    });
+    setEditStates(updatedEditStates);
+
+    // Validate all URLs in parallel
+    const validationPromises = modulesToValidate.map(async (module) => {
+      const currentUrl = module.overrideUrl || module.originalUrl;
+      const validationResult = await validateModuleUrl(currentUrl);
+
+      // Update each module's validation status as it completes
+      setEditStates((prev) => ({
+        ...prev,
+        [module.moduleName]: {
+          ...prev[module.moduleName],
+          validation: validationResult,
+        },
+      }));
+
+      return { moduleName: module.moduleName, result: validationResult };
+    });
+
+    // We don't need to wait for all promises to resolve in the useEffect
+    // as each one will update the state individually when it completes
+    Promise.all(validationPromises).catch((error) => {
+      console.error("Error during parallel validation:", error);
+    });
+  }, [modules, editStates, validateModuleUrl]);
+
+  // Function to manually trigger validation for a module
+  const handleManualValidation = useCallback(
+    async (moduleName: string) => {
+      const moduleState = editStates[moduleName];
+      if (moduleState) {
+        // Set validating state
+        setEditStates((prev) => ({
+          ...prev,
+          [moduleName]: {
+            ...prev[moduleName],
+            validation: { ...prev[moduleName].validation, isValidating: true },
+          },
+        }));
+
+        // Validate URL directly (no debounce for manual validation)
+        const validationResult = await validateModuleUrl(moduleState.value);
+
+        // Update state with validation result
+        setEditStates((prev) => ({
+          ...prev,
+          [moduleName]: {
+            ...prev[moduleName],
+            validation: validationResult,
+          },
+        }));
+      }
+    },
+    [editStates, validateModuleUrl]
+  );
+
+  // Initialize edit states for all modules
+  useEffect(() => {
+    const newEditStates: Record<
+      string,
+      {
+        value: string;
+        isEditing: boolean;
+        isSaving: boolean;
+        saveSuccess: boolean | null;
+        validation: ValidationStatus;
+      }
+    > = {};
+    modules.forEach((module) => {
+      if (!editStates[module.moduleName]) {
+        newEditStates[module.moduleName] = {
+          value: module.overrideUrl || module.originalUrl,
+          isEditing: false,
+          isSaving: false,
+          saveSuccess: null,
+          validation: { isValid: null, isValidating: false },
+        };
+      }
+    });
+    if (Object.keys(newEditStates).length > 0) {
+      setEditStates((prev) => ({ ...prev, ...newEditStates }));
+    }
+  }, [modules]);
 
   // Save handler with feedback
   const handleSave = useCallback(
@@ -573,61 +660,82 @@ export function ModuleList({
                   </div>
                 )}
 
-                {/* Validation status indicators moved below input */}
+                {editState.validation.isValidating && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500 dark:text-blue-400">
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  </div>
+                )}
               </div>
 
               {/* Validation status row */}
-              {(editState.validation.isValidating ||
-                editState.validation.isValid === true ||
-                editState.validation.isValid === false) && (
-                <div className="flex items-center mt-1 text-xs">
-                  {editState.validation.isValidating && (
-                    <div className="flex items-center text-blue-500">
+              <div className="flex items-center mt-1 text-xs h-5">
+                {editState.validation.isValidating && (
+                  <div className="flex items-center text-blue-500">
+                    <svg
+                      className="animate-spin h-3 w-3 mr-1.5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Validating URL...
+                  </div>
+                )}
+
+                {editState.validation.isValid === true &&
+                  !editState.validation.isValidating && (
+                    <div className="flex items-center text-emerald-500 dark:text-emerald-400">
                       <svg
-                        className="animate-spin h-3 w-3 mr-1.5"
+                        className="h-3 w-3 mr-1.5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
                         xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
                         <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
                         ></path>
                       </svg>
-                      Checking URL...
+                      URL is valid and accessible
                     </div>
                   )}
 
-                  {editState.validation.isValid === true &&
-                    !editState.validation.isValidating && (
-                      <div className="flex items-center text-emerald-500 dark:text-emerald-400">
-                        <svg
-                          className="h-3 w-3 mr-1.5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          ></path>
-                        </svg>
-                        URL is valid and accessible
-                      </div>
-                    )}
-
-                  {editState.validation.isValid === false &&
-                    !editState.validation.isValidating && (
+                {editState.validation.isValid === false &&
+                  !editState.validation.isValidating && (
+                    <div className="flex items-center justify-between w-full">
                       <div className="flex items-center text-red-500 dark:text-red-400">
                         <svg
                           className="h-3 w-3 mr-1.5"
@@ -643,9 +751,48 @@ export function ModuleList({
                         </svg>
                         {editState.validation.error || "URL is invalid"}
                       </div>
-                    )}
-                </div>
-              )}
+                      <button
+                        onClick={() =>
+                          handleManualValidation(module.moduleName)
+                        }
+                        className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Retry validation"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+
+                {editState.validation.isValid === null &&
+                  !editState.validation.isValidating && (
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center text-slate-400 dark:text-slate-500">
+                        <svg
+                          className="h-3 w-3 mr-1.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
+                            clipRule="evenodd"
+                          ></path>
+                        </svg>
+                        URL not validated yet
+                      </div>
+                      <button
+                        onClick={() =>
+                          handleManualValidation(module.moduleName)
+                        }
+                        className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Start validation"
+                      >
+                        Validate
+                      </button>
+                    </div>
+                  )}
+              </div>
 
               {isOverridden && (
                 <div className="text-xs text-slate-500 dark:text-slate-500 break-all line-through mt-1">
