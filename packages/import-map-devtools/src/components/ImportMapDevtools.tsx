@@ -264,7 +264,6 @@ export function ImportMapDevtools({
       </button>
 
       {isOpen &&
-        portalRootRef.current &&
         createPortal(
           <div
             className={`fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
@@ -448,7 +447,7 @@ export function ImportMapDevtools({
               </div>
             </div>
           </div>,
-          portalRootRef.current
+          document.body
         )}
     </>
   );
