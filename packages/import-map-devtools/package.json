@@ -1,6 +1,6 @@
 {
   "name": "@malinmw/import-map-devtools",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Modern UI for overriding import maps in the browser with React",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
