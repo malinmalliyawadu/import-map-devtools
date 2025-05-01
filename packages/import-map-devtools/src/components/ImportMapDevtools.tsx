@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useImportMap } from "../hooks/useImportMap";
 import { ModuleList } from "./ModuleList";
 import { Button } from "./ui/button";
@@ -36,6 +36,7 @@ export function ImportMapDevtools({
 }: ImportMapDevtoolsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const portalRootRef = useRef<HTMLDivElement | null>(null);
   // Track override history separately from active overrides
   const [moduleOverrideHistory, setModuleOverrideHistory] =
     useState<ModuleOverrideHistory>({});
@@ -53,6 +54,25 @@ export function ImportMapDevtools({
     removeOverride,
     resetAllOverrides,
   } = useImportMap();
+
+  // Create portal target element in useEffect
+  useEffect(() => {
+    const existingRoot = document.getElementById("portal-root");
+    if (!existingRoot) {
+      const div = document.createElement("div");
+      div.id = "portal-root";
+      document.body.appendChild(div);
+      portalRootRef.current = div;
+    } else {
+      portalRootRef.current = existingRoot as HTMLDivElement;
+    }
+
+    return () => {
+      if (portalRootRef.current && !document.getElementById("portal-root")) {
+        document.body.removeChild(portalRootRef.current);
+      }
+    };
+  }, []);
 
   // Restore all saved state from localStorage on initial load
   useEffect(() => {
@@ -209,16 +229,6 @@ export function ImportMapDevtools({
     (m) => !!m.overrideUrl
   ).length;
 
-  // Create portal target element
-  const portalRoot =
-    document.getElementById("portal-root") ||
-    (() => {
-      const div = document.createElement("div");
-      div.id = "portal-root";
-      document.body.appendChild(div);
-      return div;
-    })();
-
   return (
     <>
       <button
@@ -254,6 +264,7 @@ export function ImportMapDevtools({
       </button>
 
       {isOpen &&
+        portalRootRef.current &&
         createPortal(
           <div
             className={`fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
@@ -437,7 +448,7 @@ export function ImportMapDevtools({
               </div>
             </div>
           </div>,
-          portalRoot
+          portalRootRef.current
         )}
     </>
   );
