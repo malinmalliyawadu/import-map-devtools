@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "style": "dist/styles.css",
   "files": [
     "dist"
   ],
@@ -34,6 +35,11 @@
   "peerDependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
+  },
+  "dependencies": {
+    "tailwindcss": "^3.3.3",
+    "postcss": "^8.4.28",
+    "autoprefixer": "^10.4.15"
   },
   "devDependencies": {
     "@types/node": "^20.5.0",

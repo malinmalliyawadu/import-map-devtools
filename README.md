@@ -65,6 +65,22 @@ function App() {
 }
 ```
 
+### Styles
+
+The library includes its own bundled styles. You can import them in your application:
+
+```jsx
+import "import-map-devtools/dist/styles.css";
+```
+
+Or if you're using a bundler that supports CSS imports, you can import them directly:
+
+```jsx
+import "import-map-devtools";
+```
+
+The styles are automatically included when you import the component.
+
 ### Configuration Options
 
 The `ImportMapDevtools` component accepts the following props:
