@@ -90,43 +90,71 @@ export function ModuleList({
           Date.now().toString()
         );
 
-        // Fetch the URL with a HEAD request to check if it exists
-        const response = await fetch(urlWithParam.toString(), {
-          method: "HEAD",
-          // Using no-cors mode will make the request succeed but won't give us detailed status info
-          // So we'll try with cors mode first, and it might fail if CORS isn't enabled on the server
-          cache: "no-store",
-        });
+        // First try with CORS mode
+        try {
+          const response = await fetch(urlWithParam.toString(), {
+            method: "HEAD",
+            mode: "cors",
+            credentials: "omit",
+            cache: "no-store",
+          });
 
-        if (!response.ok) {
-          return {
-            isValid: false,
-            isValidating: false,
-            error: `HTTP error: ${response.status}`,
-          };
-        }
-
-        // Check content type if available
-        const contentType = response.headers.get("content-type");
-        if (contentType) {
-          const isJavaScript =
-            contentType.includes("javascript") ||
-            contentType.includes("application/ecmascript") ||
-            contentType.includes("text/ecmascript") ||
-            contentType.includes("module") ||
-            contentType.includes("json") || // For import maps
-            (contentType.includes("text/plain") && url.endsWith(".js"));
-
-          if (!isJavaScript) {
+          if (!response.ok) {
             return {
               isValid: false,
               isValidating: false,
-              error: `Not a JavaScript file: ${contentType}`,
+              error: `HTTP error: ${response.status}`,
+            };
+          }
+
+          // Check content type if available
+          const contentType = response.headers.get("content-type");
+          if (contentType) {
+            const isJavaScript =
+              contentType.includes("javascript") ||
+              contentType.includes("application/ecmascript") ||
+              contentType.includes("text/ecmascript") ||
+              contentType.includes("module") ||
+              contentType.includes("json") || // For import maps
+              contentType.includes("text/html") || // For dev servers
+              (contentType.includes("text/plain") && url.endsWith(".js"));
+
+            if (!isJavaScript) {
+              return {
+                isValid: false,
+                isValidating: false,
+                error: `Not a JavaScript file: ${contentType}`,
+              };
+            }
+          }
+
+          return { isValid: true, isValidating: false };
+        } catch {
+          // If CORS fails, try with no-cors mode
+          try {
+            await fetch(urlWithParam.toString(), {
+              method: "HEAD",
+              mode: "no-cors",
+              cache: "no-store",
+            });
+
+            // In no-cors mode, we can't check the response status or headers
+            // If the request doesn't throw, we assume it's accessible
+            return {
+              isValid: true,
+              isValidating: false,
+              error:
+                "URL is accessible but CORS headers are not set. Some features may not work.",
+            };
+          } catch {
+            return {
+              isValid: false,
+              isValidating: false,
+              error:
+                "URL is not accessible. Check if CORS is enabled on the server.",
             };
           }
         }
-
-        return { isValid: true, isValidating: false };
       } catch (error) {
         return {
           isValid: false,
