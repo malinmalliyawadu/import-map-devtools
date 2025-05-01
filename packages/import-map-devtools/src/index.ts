@@ -1,4 +1,4 @@
-import "./styles.css";
+import "./assets/styles.css";
 
 // Components
 export { ImportMapDevtools } from "./components/ImportMapDevtools";

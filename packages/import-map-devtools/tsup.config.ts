@@ -8,7 +8,7 @@ import path from "path";
 // Process CSS with PostCSS and Tailwind
 async function processCSS() {
   const css = fs.readFileSync(
-    path.resolve(__dirname, "src/styles.css"),
+    path.resolve(__dirname, "src/assets/styles.css"),
     "utf8"
   );
   const result = await postcss([tailwindcss, autoprefixer]).process(css, {
@@ -18,7 +18,7 @@ async function processCSS() {
 }
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/loader.ts", "src/styles.css"],
+  entry: ["src/index.ts", "src/loader.ts"],
   // The 'iife' format creates a self-executing function that runs as soon as it's loaded
   // tsup outputs this as a '.global.js' file rather than '.iife.js'
   format: ["cjs", "esm", "iife"],
