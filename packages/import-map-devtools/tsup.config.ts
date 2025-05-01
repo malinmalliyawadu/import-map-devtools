@@ -31,7 +31,41 @@ export default defineConfig({
   async onSuccess() {
     // Process CSS after build
     const css = await processCSS();
-    fs.writeFileSync(path.resolve(__dirname, "dist/styles.css"), css);
+
+    // Create a JavaScript file that injects the CSS
+    const injectCSS = `
+      if (typeof document !== 'undefined') {
+        const style = document.createElement('style');
+        style.textContent = \`${css.replace(/`/g, "\\`")}\`;
+        document.head.appendChild(style);
+      }
+    `;
+
+    // Write the CSS injector to a file
+    fs.writeFileSync(
+      path.resolve(__dirname, "dist/inject-styles.js"),
+      injectCSS
+    );
+
+    // Update the main entry point to import the CSS injector
+    const mainEntry = fs.readFileSync(
+      path.resolve(__dirname, "dist/index.js"),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.resolve(__dirname, "dist/index.js"),
+      `import './inject-styles.js';\n${mainEntry}`
+    );
+
+    // Do the same for the ESM version
+    const esmEntry = fs.readFileSync(
+      path.resolve(__dirname, "dist/index.mjs"),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.resolve(__dirname, "dist/index.mjs"),
+      `import './inject-styles.js';\n${esmEntry}`
+    );
   },
   esbuildOptions(options) {
     options.banner = {
