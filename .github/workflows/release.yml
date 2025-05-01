@@ -213,6 +213,6 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: cd packages/import-map-devtools && npm publish --access public
+        run: cd packages/import-map-devtools && npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
