@@ -36,7 +36,7 @@ export default defineConfig({
     const injectCSS = `
       if (typeof document !== 'undefined') {
         const style = document.createElement('style');
-        style.textContent = \`${css.replace(/`/g, "\\`")}\`;
+        style.textContent = ${JSON.stringify(css)};
         document.head.appendChild(style);
       }
     `;
