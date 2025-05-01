@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useImportMap } from "../hooks/useImportMap";
 import { ModuleList } from "./ModuleList";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { createPortal } from "react-dom";
 
 // Type for storing module override history entries
 interface OverrideHistoryEntry {
@@ -36,8 +35,6 @@ export function ImportMapDevtools({
 }: ImportMapDevtoolsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState("");
-  const portalRootRef = useRef<HTMLDivElement | null>(null);
-  // Track override history separately from active overrides
   const [moduleOverrideHistory, setModuleOverrideHistory] =
     useState<ModuleOverrideHistory>({});
   const [activeOverrides, setActiveOverrides] = useState<ActiveOverrides>({});
@@ -54,25 +51,6 @@ export function ImportMapDevtools({
     removeOverride,
     resetAllOverrides,
   } = useImportMap();
-
-  // Create portal target element in useEffect
-  useEffect(() => {
-    const existingRoot = document.getElementById("portal-root");
-    if (!existingRoot) {
-      const div = document.createElement("div");
-      div.id = "portal-root";
-      document.body.appendChild(div);
-      portalRootRef.current = div;
-    } else {
-      portalRootRef.current = existingRoot as HTMLDivElement;
-    }
-
-    return () => {
-      if (portalRootRef.current && !document.getElementById("portal-root")) {
-        document.body.removeChild(portalRootRef.current);
-      }
-    };
-  }, []);
 
   // Restore all saved state from localStorage on initial load
   useEffect(() => {
@@ -263,192 +241,190 @@ export function ImportMapDevtools({
         )}
       </button>
 
-      {isOpen &&
-        createPortal(
+      {isOpen && (
+        <div
+          className={`fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
+            isClosing ? "animate-out fade-out" : "animate-in fade-in"
+          }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleClose();
+          }}
+        >
           <div
-            className={`fixed inset-0 z-50 overflow-hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
-              isClosing ? "animate-out fade-out" : "animate-in fade-in"
+            className={`bg-white dark:bg-slate-900 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 overflow-hidden transition-all duration-300 ${
+              isClosing
+                ? "animate-out slide-out-to-bottom-10 duration-300 zoom-out-95"
+                : "animate-in slide-in-from-bottom-10 duration-300 zoom-in-95"
             }`}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) handleClose();
-            }}
           >
-            <div
-              className={`bg-white dark:bg-slate-900 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-700 overflow-hidden transition-all duration-300 ${
-                isClosing
-                  ? "animate-out slide-out-to-bottom-10 duration-300 zoom-out-95"
-                  : "animate-in slide-in-from-bottom-10 duration-300 zoom-in-95"
-              }`}
-            >
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4 bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-800 dark:to-violet-800 text-white shadow-md animate-in fade-in-75 slide-in-from-top-2 duration-500">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-white/20 rounded-lg shadow-inner shadow-black/10 animate-in fade-in zoom-in-75 duration-700 delay-100">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 p-4 bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-800 dark:to-violet-800 text-white shadow-md animate-in fade-in-75 slide-in-from-top-2 duration-500">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-lg shadow-inner shadow-black/10 animate-in fade-in zoom-in-75 duration-700 delay-100">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-shadow animate-in slide-in-from-left-4 duration-700 delay-150">
+                  Import Map Overrides
+                </h2>
+                {activeOverrideCount > 0 && (
+                  <span className="bg-white text-indigo-600 font-semibold text-xs py-1 px-2 rounded-full shadow shadow-black/10 animate-in fade-in zoom-in duration-700 delay-200">
+                    {activeOverrideCount} active
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleClose}
+                className="text-white/80 hover:text-white rounded-full p-2 hover:bg-white/10 transition-colors hover:rotate-90 transition-transform duration-300"
+                aria-label="Close Import Map Devtools"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 bg-slate-50 dark:bg-slate-800/50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-700 delay-200">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="relative flex-1 group animate-in fade-in-50 slide-in-from-left-4 duration-700 delay-300">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg
+                      className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors duration-300"
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-6 w-6"
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
                       <path
                         fillRule="evenodd"
-                        d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
                         clipRule="evenodd"
                       />
                     </svg>
                   </div>
-                  <h2 className="text-xl font-bold text-shadow animate-in slide-in-from-left-4 duration-700 delay-150">
-                    Import Map Overrides
-                  </h2>
-                  {activeOverrideCount > 0 && (
-                    <span className="bg-white text-indigo-600 font-semibold text-xs py-1 px-2 rounded-full shadow shadow-black/10 animate-in fade-in zoom-in duration-700 delay-200">
-                      {activeOverrideCount} active
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={handleClose}
-                  className="text-white/80 hover:text-white rounded-full p-2 hover:bg-white/10 transition-colors hover:rotate-90 transition-transform duration-300"
-                  aria-label="Close Import Map Devtools"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="p-4 border-b border-slate-200 dark:border-slate-700 space-y-4 bg-slate-50 dark:bg-slate-800/50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-700 delay-200">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="relative flex-1 group animate-in fade-in-50 slide-in-from-left-4 duration-700 delay-300">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Input
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    placeholder="Filter modules..."
+                    className="pl-10 pr-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 shadow-md transition-shadow duration-300 focus:shadow-lg"
+                  />
+                  {filter && (
+                    <button
+                      onClick={() => setFilter("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm hover:shadow active:scale-90 transition-transform"
+                      aria-label="Clear filter"
+                    >
                       <svg
-                        className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors duration-300"
                         xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
                         <path
                           fillRule="evenodd"
-                          d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
                           clipRule="evenodd"
                         />
                       </svg>
-                    </div>
-                    <Input
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                      placeholder="Filter modules..."
-                      className="pl-10 pr-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 shadow-md transition-shadow duration-300 focus:shadow-lg"
-                    />
-                    {filter && (
-                      <button
-                        onClick={() => setFilter("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm hover:shadow active:scale-90 transition-transform"
-                        aria-label="Clear filter"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-2 animate-in fade-in-50 slide-in-from-right-4 duration-700 delay-300">
-                    <Button
-                      variant="destructive"
-                      onClick={resetAllOverrides}
-                      className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all flex items-center gap-1 active:scale-95 transition-transform"
-                      disabled={!hasOverrides}
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2 animate-in fade-in-50 slide-in-from-right-4 duration-700 delay-300">
+                  <Button
+                    variant="destructive"
+                    onClick={resetAllOverrides}
+                    className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all flex items-center gap-1 active:scale-95 transition-transform"
+                    disabled={!hasOverrides}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                      </svg>
-                      Reset All
-                    </Button>
-                  </div>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    Reset All
+                  </Button>
                 </div>
               </div>
-
-              <div className="flex-1 overflow-auto p-4 bg-white dark:bg-slate-900 rounded-b-xl animate-in fade-in-75 slide-in-from-bottom-4 duration-700 delay-300">
-                {isLoading ? (
-                  <div className="flex flex-col justify-center items-center h-40 space-y-4">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent shadow-md"></div>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm animate-pulse">
-                      Loading modules...
-                    </p>
-                  </div>
-                ) : filteredModules.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-center p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-800 shadow-lg animate-in fade-in zoom-in-95 duration-700">
-                    <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full mb-4 shadow-inner animate-in zoom-in-50 duration-700 delay-100">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-8 w-8 text-slate-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-slate-700 dark:text-slate-300 font-medium mb-1 drop-shadow animate-in fade-in-50 slide-in-from-bottom-2 duration-700 delay-150">
-                      No modules found
-                    </h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm animate-in fade-in-50 slide-in-from-bottom-1 duration-700 delay-200">
-                      {filter
-                        ? "No modules match your filter. Try a different search term."
-                        : "No modules found. Make sure you have an import map on this page."}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="animate-in fade-in-75 duration-500 delay-300">
-                    <ModuleList
-                      modules={filteredModules}
-                      onReset={handleResetModule}
-                      onSave={handleOverrideModule}
-                      moduleOverrideHistory={moduleOverrideHistory}
-                      activeOverrides={activeOverrides}
-                    />
-                  </div>
-                )}
-              </div>
             </div>
-          </div>,
-          document.body
-        )}
+
+            <div className="flex-1 overflow-auto p-4 bg-white dark:bg-slate-900 rounded-b-xl animate-in fade-in-75 slide-in-from-bottom-4 duration-700 delay-300">
+              {isLoading ? (
+                <div className="flex flex-col justify-center items-center h-40 space-y-4">
+                  <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent shadow-md"></div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm animate-pulse">
+                    Loading modules...
+                  </p>
+                </div>
+              ) : filteredModules.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-40 text-center p-4 bg-slate-50/50 dark:bg-slate-800/20 rounded-lg border border-slate-100 dark:border-slate-800 shadow-lg animate-in fade-in zoom-in-95 duration-700">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-full mb-4 shadow-inner animate-in zoom-in-50 duration-700 delay-100">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8 text-slate-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-slate-700 dark:text-slate-300 font-medium mb-1 drop-shadow animate-in fade-in-50 slide-in-from-bottom-2 duration-700 delay-150">
+                    No modules found
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm animate-in fade-in-50 slide-in-from-bottom-1 duration-700 delay-200">
+                    {filter
+                      ? "No modules match your filter. Try a different search term."
+                      : "No modules found. Make sure you have an import map on this page."}
+                  </p>
+                </div>
+              ) : (
+                <div className="animate-in fade-in-75 duration-500 delay-300">
+                  <ModuleList
+                    modules={filteredModules}
+                    onReset={handleResetModule}
+                    onSave={handleOverrideModule}
+                    moduleOverrideHistory={moduleOverrideHistory}
+                    activeOverrides={activeOverrides}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
