@@ -215,7 +215,6 @@ export function ModuleList({
     // Set all modules to validating state
     const updatedEditStates = { ...editStates };
     modulesToValidate.forEach((module) => {
-      const currentUrl = module.overrideUrl || module.originalUrl;
       updatedEditStates[module.moduleName] = {
         ...updatedEditStates[module.moduleName],
         validation: {
@@ -248,7 +247,7 @@ export function ModuleList({
     Promise.all(validationPromises).catch((error) => {
       console.error("Error during parallel validation:", error);
     });
-  }, [modules, editStates, validateModuleUrl]);
+  }, [modules]); // Only depend on modules array, not editStates or validateModuleUrl
 
   // Function to manually trigger validation for a module
   const handleManualValidation = useCallback(
